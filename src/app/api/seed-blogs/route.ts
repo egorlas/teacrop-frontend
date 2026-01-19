@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mockBlogs } from "@/data/blogs";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337';
+// Server-side only: Use API_URL (runtime) or fallback to NEXT_PUBLIC_API_URL (build-time) or default
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337';
 const API_TOKEN = process.env.STRAPI_API_TOKEN || process.env.NEXT_PUBLIC_STRAPI_API_TOKEN;
 
 /**
