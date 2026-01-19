@@ -3,13 +3,20 @@
  * Handles environment variables and creates OpenAI client instance
  */
 
-if (!process.env.NEXT_PUBLIC_OPENAI_API_KEY) {
-  throw new Error(
-    "OPENAI_API_KEY is not set. Please create a .env.local file with your OpenAI API key.",
-  );
+/**
+ * Get OpenAI API key - runtime only, not checked at build time
+ */
+export function getOpenAIApiKey(): string {
+  const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not set. Please create a .env.local file with your OpenAI API key.",
+    );
+  }
+  return apiKey;
 }
 
-export const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+export const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY || "";
 export const OPENAI_MODEL = process.env.NEXT_PUBLIC_OPENAI_MODEL || "gpt-4o-mini";
 export const AI_SYSTEM_PROMPT =
   process.env.NEXT_PUBLIC_AI_SYSTEM_PROMPT ||

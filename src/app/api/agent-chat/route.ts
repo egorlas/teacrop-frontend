@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { validateMessage, OPENAI_API_KEY, OPENAI_MODEL, AI_SYSTEM_PROMPT } from "@/lib/ai";
+import { validateMessage, getOpenAIApiKey, OPENAI_MODEL, AI_SYSTEM_PROMPT } from "@/lib/ai";
 
 // Rate limiting in memory (simple implementation)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              Authorization: `Bearer ${getOpenAIApiKey()}`,
             },
             body: JSON.stringify({
               model: OPENAI_MODEL,
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
-                          Authorization: `Bearer ${OPENAI_API_KEY}`,
+                          Authorization: `Bearer ${getOpenAIApiKey()}`,
                         },
                         body: JSON.stringify({
                           model: OPENAI_MODEL,
@@ -394,7 +394,7 @@ export async function POST(req: NextRequest) {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                    Authorization: `Bearer ${getOpenAIApiKey()}`,
                   },
                   body: JSON.stringify({
                     model: OPENAI_MODEL,
