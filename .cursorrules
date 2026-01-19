@@ -1,0 +1,40 @@
+# Cursor Rules for your Next.js project
+project_style:
+  language: "TypeScript + React (Next.js App Router)"
+  ui: "Tailwind CSS + shadcn/ui"
+  theme: "webapp"
+  dir_structure:
+    - "src/app (App Router)"
+    - "src/components"
+    - "src/lib"
+    - "src/styles"
+    - "src/types"
+  alias: "@/*"
+  patterns:
+    - "Small, reusable components when possible"
+    - "Strong typing for props and functions (no 'any')"
+    - "Responsive-first, mobile-first design"
+    - "Accessibility: proper heading hierarchy, alt text, aria-labels"
+    - "Use cn() util (clsx + tailwind-merge) for classNames"
+    - "Prefer @/* alias over long relative paths"
+  commit_convention: "Small, logically grouped commits with clear messages"
+
+lint_format:
+  eslint:
+    rules:
+      - "import/order: enforce groups and newlines"
+      - "unused-imports/no-unused-imports: error"
+  prettier: true
+
+practices:
+  performance:
+    - "Prevent unnecessary re-renders: React.memo/useCallback where reasonable"
+    - "Lazy-load images with loading='lazy'"
+  accessibility:
+    - "Correct heading levels (h1 once per page)"
+    - "Icon-only buttons must have aria-label"
+
+deliverables:
+  - "Always produce running code (no pseudo-code)"
+  - "If CLI steps are needed, list the exact commands to run"
+  - "Group file changes by topic for easier review"
