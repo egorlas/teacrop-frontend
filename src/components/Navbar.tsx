@@ -23,7 +23,6 @@ const navLinks = [
   { href: "/", label: "Trang chủ" },
   { href: "/about", label: "Về chúng tôi" },
   { href: "/products", label: "Sản phẩm" },
-  { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Liên hệ" },
   { href: "/agent-chat", label: "Chat AI" },
 ];

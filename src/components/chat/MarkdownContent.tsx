@@ -45,7 +45,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
               {children}
             </pre>
           ),
-          code: ({ className, children, ...props }: { className?: string; children?: React.ReactNode; [key: string]: unknown }) => {
+          code: ({ className, children, ...props }) => {
             const isInline = !className?.includes("language");
             return isInline ? (
               <code

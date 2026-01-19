@@ -62,7 +62,7 @@ export function BlockRenderer({ blocks, className }: BlockRendererProps) {
               <div key={index} className="my-8">
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
                   <ProductImage
-                    src={imageUrl}
+                    src={imageUrl || ''}
                     alt={imageAlt}
                     fill
                     className="object-cover"
@@ -113,7 +113,7 @@ export function BlockRenderer({ blocks, className }: BlockRendererProps) {
                       className="relative aspect-square w-full overflow-hidden rounded-lg bg-muted"
                     >
                       <ProductImage
-                        src={imgUrl}
+                        src={imgUrl || ''}
                         alt={imgAlt}
                         fill
                         className="object-cover"

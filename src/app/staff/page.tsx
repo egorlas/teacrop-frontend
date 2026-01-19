@@ -36,6 +36,13 @@ interface Product {
   sku?: string;
   inventory?: number;
   price?: number;
+  // Strapi v4 nested structure
+  attributes?: {
+    title?: string;
+    sku?: string;
+    inventory?: number;
+    price?: number;
+  };
 }
 
 interface OrdersResponse {
@@ -71,16 +78,17 @@ interface OrderStats {
 }
 
 function transformProduct(product: Product): Product {
+  // Check if structure is flat (Strapi v5) or nested (Strapi v4)
   const isFlat = !product.attributes || "title" in product;
   if (isFlat) {
     return product;
   }
   return {
     id: product.id,
-    title: (product as any).attributes?.title,
-    sku: (product as any).attributes?.sku,
-    inventory: (product as any).attributes?.inventory,
-    price: (product as any).attributes?.price,
+    title: product.attributes?.title,
+    sku: product.attributes?.sku,
+    inventory: product.attributes?.inventory,
+    price: product.attributes?.price,
   };
 }
 

@@ -40,7 +40,7 @@ export function ProductCard({ productId, name, price, image, description, varian
     <Card className="overflow-hidden">
       <div className="relative aspect-square w-full overflow-hidden bg-muted">
         <ProductImage
-          src={image}
+          src={image || ''}
           alt={name}
           fill
           className="object-cover"

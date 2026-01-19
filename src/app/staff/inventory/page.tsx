@@ -194,12 +194,18 @@ export default function InventoryPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  const addToast = (toast: ToastProps) => {
-    setToasts((prev) => [...prev, toast]);
-  };
-
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const addToast = (toast: ToastProps) => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        ...toast,
+        onClose: () => removeToast(toast.id),
+      },
+    ]);
   };
 
   // Calculate statistics
@@ -405,7 +411,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Toast Container */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer toasts={toasts} />
     </div>
   );
 }

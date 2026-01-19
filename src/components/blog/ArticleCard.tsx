@@ -21,7 +21,7 @@ export function ArticleCard({ post, className }: ArticleCardProps) {
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
         {post.coverImage ? (
           <ProductImage
-            src={post.coverImage}
+            src={post.coverImage || ''}
             alt={post.title}
             fill
             className="object-cover transition-transform group-hover:scale-105"

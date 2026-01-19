@@ -16,7 +16,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
       {/* Hình ảnh sản phẩm */}
       <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted">
         <ProductImage
-          src={product.image}
+          src={product.image || ''}
           alt={product.name}
           fill
           className="object-cover"
