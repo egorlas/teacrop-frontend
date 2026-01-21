@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     if (!response.ok) {
       // Fallback: try to get from /api/users/me with populate
       try {
-        const fallbackResponse = await fetch(`${API_URL}/api/users/me?populate[sub]=*`, {
+        const fallbackResponse = await fetch(`${STRAPI_URL}/api/users/me?populate[sub]=*`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
