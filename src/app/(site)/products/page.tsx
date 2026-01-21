@@ -55,6 +55,7 @@ function ProductsList() {
   const finishedGoods = searchParams.get("finished_goods") || "";
   const sort = searchParams.get("sort") || "createdAt:desc";
   const page = Number(searchParams.get("page")) || 1;
+  const [searchInput, setSearchInput] = useState(search);
 
   // Update URL params
   const updateParams = useCallback(
@@ -75,6 +76,19 @@ function ProductsList() {
     },
     [router, pathname, searchParams]
   );
+
+  // Keep local search input in sync when URL search param changes (e.g. back/forward)
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    const value = searchInput.trim();
+    updateParams({ search: value || null });
+  };
 
   // Fetch products
   const fetchProducts = useCallback(async () => {
@@ -187,24 +201,31 @@ function ProductsList() {
       {/* Search and Filters Bar */}
       <div className="space-y-4">
         {/* Search Input */}
-        <div className="relative">
+        <form
+          className="relative"
+          onSubmit={handleSearchSubmit}
+        >
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Tìm kiếm sản phẩm..."
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10 pr-10"
           />
           {search && (
             <button
-              onClick={() => handleSearchChange("")}
+              type="button"
+              onClick={() => {
+                setSearchInput("");
+                updateParams({ search: null });
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           )}
-        </div>
+        </form>
 
         {/* Filters Row */}
         <div className="flex flex-wrap items-center gap-3">

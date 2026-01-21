@@ -302,7 +302,14 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
                   </ScrollArea>
                 )}
 
-                <div className={`space-y-3 pt-3 pb-4 px-4 shrink-0 bg-background sm:space-y-4 sm:pt-4 sm:pb-6 sm:px-6 ${!selectedPaymentMethod ? 'border-t' : ''}`}>
+                <div
+                  className={
+                    `space-y-3 pt-3 pb-4 px-4 shrink-0 bg-background sm:space-y-4 sm:pt-4 sm:pb-6 sm:px-6 ` +
+                    `${!selectedPaymentMethod ? "border-t" : ""} ` +
+                    // When confirming order (mobile), allow scrolling to see full form + button
+                    `${selectedPaymentMethod ? "max-h-[50vh] overflow-y-auto" : ""}`
+                  }
+                >
                   {!selectedPaymentMethod && (
                     <>
                       <div className="flex justify-between text-xs sm:text-sm">
