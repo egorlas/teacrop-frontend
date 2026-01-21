@@ -202,6 +202,16 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
   const inventory = isFlat ? strapiProduct.inventory : strapiProduct.attributes?.inventory;
   const productType = isFlat ? strapiProduct.productType : strapiProduct.attributes?.productType;
   const images = isFlat ? strapiProduct.images : strapiProduct.attributes?.images;
+  // New enum fields for filtering
+  const teaType = isFlat
+    ? (strapiProduct as any).teaType
+    : (strapiProduct.attributes as any)?.teaType;
+  const ingredient = isFlat
+    ? (strapiProduct as any).ingredient
+    : (strapiProduct.attributes as any)?.ingredient;
+  const finishedGoods = isFlat
+    ? (strapiProduct as any).finished_goods
+    : (strapiProduct.attributes as any)?.finished_goods;
 
   // Get JSON attributes field (aliases, specifications)
   // In nested structure: attributes.attributes (first attributes is the wrapper, second is the JSON field)
@@ -258,7 +268,17 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
     specifications: jsonAttributes?.specifications || undefined,
     sku: sku || undefined,
     inventory: inventory ?? undefined,
-    productType: productType as "trà" | "trà cụ" | undefined,
+    productType: productType as "tea" | "tea_tools" | undefined,
+    teaType: teaType || undefined,
+    ingredient: ingredient || undefined,
+    finished_goods: finishedGoods || undefined,
+    attributes: jsonAttributes ? {
+      brand: jsonAttributes.brand || undefined,
+      expiry: jsonAttributes.expiry || undefined,
+      origin: jsonAttributes.origin || undefined,
+      weight: jsonAttributes.weight || undefined,
+      package: jsonAttributes.package || undefined,
+    } : undefined,
   };
 }
 
@@ -309,9 +329,12 @@ export async function getProducts(params?: {
       });
     }
 
+    // Products API is public, no authentication needed
     const response = await fetch(`${API_URL}/api/products?${queryParams.toString()}`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -341,10 +364,13 @@ export async function getProducts(params?: {
  */
 export async function getProductById(id: string): Promise<Product | null> {
   try {
+    // Products API is public, no authentication needed
     // Fetch product by slug instead of ID
     const response = await fetch(`${API_URL}/api/products?filters[slug][$eq]=${encodeURIComponent(id)}&populate=*`, {
       method: 'GET',
-      headers: getHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {

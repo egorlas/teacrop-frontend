@@ -254,6 +254,7 @@ export default function CreateOrderPage() {
         totalAmount: parseFloat(totalAmount),
         paymentMethod,
         shippingCarrier: shippingCarrier || null,
+        status: "processing", // Set status to processing when order is created
       };
 
       // Call API to create order
@@ -995,17 +996,17 @@ export default function CreateOrderPage() {
                             ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
                             : createdOrder.status === "processing"
                             ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                            : createdOrder.status === "shipped"
+                            : createdOrder.status === "shiping"
                             ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-                            : createdOrder.status === "delivered"
+                            : createdOrder.status === "shiped"
                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                             : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                         }`}
                       >
-                        {createdOrder.status === "pending" && "Đang chờ xử lý"}
-                        {createdOrder.status === "processing" && "Đang xử lý"}
-                        {createdOrder.status === "shipped" && "Đã gửi hàng"}
-                        {createdOrder.status === "delivered" && "Đã giao hàng"}
+                        {createdOrder.status === "pending" && "Đang xử lý"}
+                        {createdOrder.status === "processing" && "Xác nhận đơn hàng"}
+                        {createdOrder.status === "shiping" && "Đang giao hàng"}
+                        {createdOrder.status === "shiped" && "Đã nhận hàng"}
                         {createdOrder.status === "cancelled" && "Đã hủy"}
                       </span>
                     </div>

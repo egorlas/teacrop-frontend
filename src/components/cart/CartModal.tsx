@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ShoppingCart, Minus, Plus, Trash2, QrCode, Banknote, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShoppingCart, Minus, Plus, Trash2, Banknote, ArrowLeft, LogIn, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,8 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCartStore, type PaymentMethod } from "@/store/cart";
+import { useAuthStore } from "@/store/auth";
 import { formatCurrencyVND } from "@/lib/utils";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
 import { SuccessTransactionDialog } from "./SuccessTransactionDialog";
 
@@ -53,9 +55,24 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
   const setDialogOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
 
   const { items, updateItemQty, removeItem, createTransaction, lastTransaction } = useCartStore();
+  const { isAuthenticated, token, user } = useAuthStore();
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const total = subtotal; // No tax/shipping for now
+
+  // Auto-fill customer info when user is authenticated and dialog opens
+  useEffect(() => {
+    if (dialogOpen && isAuthenticated && user) {
+      // Auto-fill name from username if not already filled
+      if (!customerInfo.name.trim() && user.username) {
+        setCustomerInfo((prev) => ({ ...prev, name: user.username }));
+      }
+      // Auto-fill phone if user has phone number
+      if (!customerInfo.phone.trim() && user.phone) {
+        setCustomerInfo((prev) => ({ ...prev, phone: user.phone || "" }));
+      }
+    }
+  }, [dialogOpen, isAuthenticated, user?.username, user?.phone]); // Only depend on relevant fields
 
   const handleQtyChange = (id: string, delta: number) => {
     const item = items.find((i) => i.id === id);
@@ -119,11 +136,17 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
     try {
       if (method === "cash") {
         // Call API for cash payment with customer info
+        // Include auth token if user is logged in so backend can link order to customer
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         const response = await fetch("/api/agent/cash-payment", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({
             items: items.map((item) => ({
               id: item.id,
@@ -143,28 +166,39 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Thanh toán thất bại");
+          throw new Error(errorData.error || "Đặt hàng thất bại");
         }
 
         const data = await response.json();
+        const orderNumber = data.orderNumber || data.order_id || data.id;
+        const customerPhone = customerInfo.phone.replace(/\s+/g, "");
 
-        // Create transaction in store with transaction_id from API
-        const transaction = await createTransaction(method, undefined, data.transaction_id || data.id);
+        // Save orderNumber and phone to localStorage for automatic lookup
+        if (orderNumber && customerPhone) {
+          localStorage.setItem("lastOrderNumber", orderNumber);
+          localStorage.setItem("lastOrderPhone", customerPhone);
+          // Set expiry (24 hours)
+          localStorage.setItem("lastOrderTimestamp", Date.now().toString());
+        }
+
+        // Create transaction in store with orderNumber from API
+        // Note: createTransaction already clears the cart, so we don't need to clear it again
+        const transaction = await createTransaction(
+          method, 
+          undefined, 
+          orderNumber
+        );
         
         setShowSuccessDialog(true);
-        toast.success("Thanh toán thành công!");
+        toast.success("Đặt hàng thành công! Đơn hàng của bạn đang chờ xử lý.");
         
-        // Reset form
+        // Reset form and payment method
         setCustomerInfo({ name: "", address: "", phone: "" });
         setFormErrors({});
-      } else {
-        // QR payment - use existing store method
-        const transaction = await createTransaction(method);
-        setShowSuccessDialog(true);
-        toast.success("Thanh toán thành công!");
+        setSelectedPaymentMethod(null);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Thanh toán thất bại");
+      toast.error(error instanceof Error ? error.message : "Đặt hàng thất bại");
     } finally {
       setIsProcessing(false);
     }
@@ -179,7 +213,7 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
     <>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 !left-[50%] !top-[50%] !translate-x-[-50%] !translate-y-[-50%]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 left-[50%]! top-[50%]! translate-x-[-50%]! translate-y-[-50%]!">
             <DialogHeader className="px-4 pt-4 pb-3 shrink-0 sm:px-6 sm:pt-6 sm:pb-4">
               <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <ShoppingCart className="h-5 w-5" />
@@ -198,110 +232,103 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
             ) : (
               <>
                 {/* Items list - Mobile: larger scroll area (50vh), Desktop: flex-1 */}
-                <ScrollArea 
-                  className="flex-1 min-h-0 px-4 sm:px-6 max-h-[50vh] sm:max-h-none" 
-                >
-                  <div className="space-y-3 pb-4 sm:space-y-4">
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex gap-3 p-3 border border-border rounded-lg bg-card sm:gap-4 sm:p-4"
-                      >
-                        {item.image && (
-                          <div className="relative w-16 h-16 sm:w-24 sm:h-24 shrink-0 rounded-lg overflow-hidden bg-muted">
-                            <Image
-                              src={item.image}
-                              alt={item.title}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 640px) 64px, 96px"
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm sm:text-base line-clamp-2">
-                            {item.title}
-                          </h4>
-                          {item.variant && (
-                            <p className="text-xs text-muted-foreground mt-0.5">Biến thể: {item.variant}</p>
+                {!selectedPaymentMethod && (
+                  <ScrollArea 
+                    className="flex-1 min-h-0 px-4 sm:px-6 max-h-[50vh] sm:max-h-none" 
+                  >
+                    <div className="space-y-3 pb-4 sm:space-y-4">
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex gap-3 p-3 border border-border rounded-lg bg-card sm:gap-4 sm:p-4"
+                        >
+                          {item.image && (
+                            <div className="relative w-16 h-16 sm:w-24 sm:h-24 shrink-0 rounded-lg overflow-hidden bg-muted">
+                              <Image
+                                src={item.image}
+                                alt={item.title}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 640px) 64px, 96px"
+                              />
+                            </div>
                           )}
-                          <p className="text-xs font-medium text-primary mt-1 sm:text-sm">
-                            {formatCurrencyVND(item.price)}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2 sm:mt-3">
-                            <div className="flex items-center gap-1 border border-border rounded-md">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm sm:text-base line-clamp-2">
+                              {item.title}
+                            </h4>
+                            {item.variant && (
+                              <p className="text-xs text-muted-foreground mt-0.5">Biến thể: {item.variant}</p>
+                            )}
+                            <p className="text-xs font-medium text-primary mt-1 sm:text-sm">
+                              {formatCurrencyVND(item.price)}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2 sm:mt-3">
+                              <div className="flex items-center gap-1 border border-border rounded-md">
+                                <Button
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 sm:h-8 sm:w-8"
+                                  onClick={() => handleQtyChange(item.id, -1)}
+                                >
+                                  <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </Button>
+                                <span className="min-w-6 text-center text-xs font-medium sm:min-w-8 sm:text-sm">
+                                  {item.qty}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 sm:h-8 sm:w-8"
+                                  onClick={() => handleQtyChange(item.id, 1)}
+                                >
+                                  <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </Button>
+                              </div>
+                              <div className="flex-1" />
+                              <div className="text-xs font-semibold sm:text-sm">
+                                {formatCurrencyVND(item.price * item.qty)}
+                              </div>
                               <Button
                                 variant="ghost"
-                                className="h-7 w-7 p-0 sm:h-8 sm:w-8"
-                                onClick={() => handleQtyChange(item.id, -1)}
+                                className="h-7 w-7 p-0 text-destructive sm:h-8 sm:w-8"
+                                onClick={() => handleRemoveItem(item.id)}
                               >
-                                <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                              <span className="min-w-6 text-center text-xs font-medium sm:min-w-8 sm:text-sm">
-                                {item.qty}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                className="h-7 w-7 p-0 sm:h-8 sm:w-8"
-                                onClick={() => handleQtyChange(item.id, 1)}
-                              >
-                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             </div>
-                            <div className="flex-1" />
-                            <div className="text-xs font-semibold sm:text-sm">
-                              {formatCurrencyVND(item.price * item.qty)}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-destructive sm:h-8 sm:w-8"
-                              onClick={() => handleRemoveItem(item.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+
+                <div className={`space-y-3 pt-3 pb-4 px-4 shrink-0 bg-background sm:space-y-4 sm:pt-4 sm:pb-6 sm:px-6 ${!selectedPaymentMethod ? 'border-t' : ''}`}>
+                  {!selectedPaymentMethod && (
+                    <>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-muted-foreground">Tạm tính:</span>
+                        <span className="font-medium">{formatCurrencyVND(subtotal)}</span>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      <Separator />
+                      <div className="flex justify-between text-sm font-semibold sm:text-base">
+                        <span>Tổng cộng:</span>
+                        <span className="text-primary">{formatCurrencyVND(total)}</span>
+                      </div>
+                    </>
+                  )}
 
-                <div className="space-y-3 pt-3 pb-4 px-4 border-t shrink-0 bg-background sm:space-y-4 sm:pt-4 sm:pb-6 sm:px-6">
-                  <div className="flex justify-between text-xs sm:text-sm">
-                    <span className="text-muted-foreground">Tạm tính:</span>
-                    <span className="font-medium">{formatCurrencyVND(subtotal)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between text-sm font-semibold sm:text-base">
-                    <span>Tổng cộng:</span>
-                    <span className="text-primary">{formatCurrencyVND(total)}</span>
-                  </div>
-
-                  {/* Payment Methods - Same row on mobile, expandable */}
+                  {/* Order Form */}
                   {!selectedPaymentMethod ? (
                     <div className="pt-2">
-                      <p className="text-xs font-medium mb-2 sm:text-sm sm:mb-3">Phương thức thanh toán:</p>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        {/* QR Code Payment Button */}
-                        <Button
-                          variant="outline"
-                          onClick={() => setSelectedPaymentMethod("qr")}
-                          className="flex flex-col items-center gap-1.5 h-auto py-3 px-2 sm:py-4 sm:px-4"
-                        >
-                          <QrCode className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
-                          <span className="text-xs font-medium sm:text-sm">QR Code</span>
-                        </Button>
-
-                        {/* Cash Payment Button */}
-                        <Button
-                          variant="outline"
-                          onClick={() => setSelectedPaymentMethod("cash")}
-                          className="flex flex-col items-center gap-1.5 h-auto py-3 px-2 sm:py-4 sm:px-4"
-                        >
-                          <Banknote className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
-                          <span className="text-xs font-medium sm:text-sm">Tiền mặt</span>
-                        </Button>
-                      </div>
+                      <Button
+                        variant="default"
+                        onClick={() => setSelectedPaymentMethod("cash")}
+                        className="w-full"
+                        size="lg"
+                      >
+                        <Banknote className="mr-2 h-5 w-5" />
+                        Đặt hàng
+                      </Button>
                     </div>
                   ) : (
                     <div className="space-y-3 pt-2">
@@ -316,49 +343,16 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
                         className="h-8 w-full text-xs sm:text-sm"
                       >
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Quay lại chọn phương thức
+                        Quay lại
                       </Button>
 
-                      {/* QR Code Payment Details */}
-                      {selectedPaymentMethod === "qr" && (
-                        <div className="border border-border rounded-lg p-4 space-y-3">
-                          <div className="flex items-center gap-3">
-                            <QrCode className="h-5 w-5 text-primary" />
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">Thanh toán QR</p>
-                              <p className="text-xs text-muted-foreground">
-                                Quét mã QR để thanh toán
-                              </p>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex justify-center bg-muted/50 rounded-lg p-3 sm:p-4">
-                              <div className="w-40 h-40 sm:w-48 sm:h-48 bg-white rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-                                <div className="text-center">
-                                  <QrCode className="h-12 w-12 mx-auto text-muted-foreground mb-2 sm:h-16 sm:w-16" />
-                                  <p className="text-xs text-muted-foreground">QR Code Demo</p>
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              onClick={() => handlePayment("qr")}
-                              disabled={isProcessing}
-                              className="w-full"
-                              size="lg"
-                            >
-                              {isProcessing ? "Đang xử lý..." : "Xác nhận thanh toán"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Cash Payment Details */}
+                      {/* Order Details */}
                       {selectedPaymentMethod === "cash" && (
                         <div className="border border-border rounded-lg p-4 space-y-4">
                           <div className="flex items-center gap-3">
                             <Banknote className="h-5 w-5 text-primary" />
                             <div className="flex-1">
-                              <p className="font-medium text-sm">Thanh toán tiền mặt</p>
+                              <p className="font-medium text-sm">Đặt hàng</p>
                               <p className="text-xs text-muted-foreground">
                                 Vui lòng điền thông tin khách hàng
                               </p>
@@ -435,6 +429,40 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
                                 <p className="text-xs text-destructive">{formErrors.address}</p>
                               )}
                             </div>
+
+                            {/* Login Suggestion for non-authenticated users */}
+                            {!isAuthenticated && (
+                              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                                <div className="flex items-start gap-2">
+                                  <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                                  <div className="flex-1 space-y-1.5">
+                                    <p className="text-xs font-medium text-foreground">
+                                      Đăng nhập để theo dõi đơn hàng tốt hơn
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Khi đăng nhập, bạn có thể xem lịch sử đơn hàng, theo dõi trạng thái vận chuyển và quản lý thông tin cá nhân một cách thuận tiện.
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                      ✓ Giỏ hàng của bạn sẽ được giữ nguyên khi đăng nhập
+                                    </p>
+                                    <Link 
+                                      href="/login"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        // Save current dialog state to restore after login
+                                        // Cart items are already persisted in localStorage
+                                        setDialogOpen(false);
+                                        window.location.href = "/login";
+                                      }}
+                                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline mt-1"
+                                    >
+                                      <LogIn className="h-3.5 w-3.5" />
+                                      Đăng nhập ngay
+                                    </Link>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <Button
@@ -443,7 +471,7 @@ export function CartModal({ children, open, onOpenChange }: CartModalProps) {
                             className="w-full"
                             size="lg"
                           >
-                            {isProcessing ? "Đang xử lý..." : "Xác nhận đã nhận tiền"}
+                            {isProcessing ? "Đang xử lý..." : "Xác nhận đặt hàng"}
                           </Button>
                         </div>
                       )}

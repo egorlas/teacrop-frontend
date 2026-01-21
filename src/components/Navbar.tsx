@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, X, LogIn, User, LogOut, UserCircle, Settings } from "lucide-react";
+import { Menu, X, LogIn, User, LogOut, UserCircle, Settings, Package, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/Container";
 import { AudioToggle } from "@/components/AudioToggle";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth";
+import { CartModal } from "@/components/cart/CartModal";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -19,22 +20,21 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
-const navLinks = [
-  { href: "/", label: "Trang chủ" },
-  { href: "/about", label: "Về chúng tôi" },
-  { href: "/products", label: "Sản phẩm" },
-  { href: "/contact", label: "Liên hệ" },
-  { href: "/agent-chat", label: "Chat AI" },
-];
+// Navigation links
+const navLinks: Array<{ href: string; label: string; icon?: any }> = [];
 
 export function Navbar() {
   const router = useRouter();
-  const { isAuthenticated, user, checkAuth, isStaff, role } = useAuthStore();
+  const { isAuthenticated, user, checkAuth, isStaff, role, hasHydrated } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    // Only check auth after state has been hydrated from localStorage
+    if (hasHydrated) {
+      checkAuth();
+    }
+  }, [hasHydrated, checkAuth]);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -42,6 +42,11 @@ export function Navbar() {
   const handleLogout = () => {
     useAuthStore.getState().logout();
     router.push("/login");
+  };
+
+  const handleOpenCart = () => {
+    setCartModalOpen(true);
+    setIsOpen(false); // Close mobile menu if open
   };
 
   // Helper: extract role name if user.role is an object, else show as string
@@ -64,16 +69,20 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <ul className="hidden items-center gap-6 md:flex">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {Icon && <Icon className="h-4 w-4" />}
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
 
           {/* Auth Buttons, Theme Toggle, Audio Toggle and Mobile Menu Button */}
@@ -124,6 +133,32 @@ export function Navbar() {
                     <Link href="/profile" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
                       <span>Hồ sơ</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleOpenCart}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center">
+                      <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="9" cy="21" r="1" />
+                        <circle cx="20" cy="21" r="1" />
+                        <path d="M1 1h2l.4 2M7 13h10l4-8H5.4" />
+                        <path d="M7 13l-1.35-5.41A1 1 0 0 1 6.62 6h14.48" />
+                      </svg>
+                      <span>Giỏ hàng</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/orders" className="flex items-center">
+                      <Package className="mr-2 h-4 w-4" />
+                      <span>Lịch sử đơn hàng</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/products" className="flex items-center">
+                      <Store className="mr-2 h-4 w-4" />
+                      <span>Cửa hàng</span>
                     </Link>
                   </DropdownMenuItem>
                   {isStaff && (
@@ -181,17 +216,21 @@ export function Navbar() {
               <ThemeToggle />
             </div>
             <ul className="flex flex-col gap-4">
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    onClick={closeMenu}
-                    className="block text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              {navLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={closeMenu}
+                      className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {Icon && <Icon className="h-4 w-4" />}
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             {/* Mobile Login Button */}
             <div className="pt-4 border-t border-border">
@@ -214,6 +253,9 @@ export function Navbar() {
           </div>
         </div>
       </Container>
+
+      {/* Cart Modal */}
+      <CartModal open={cartModalOpen} onOpenChange={setCartModalOpen} />
     </nav>
   );
 }

@@ -35,6 +35,19 @@ type CartState = {
 
 const generateTransactionId = () => `txn-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
+/**
+ * Cart Store with Persistence
+ * 
+ * IMPORTANT: This store is persisted independently from auth store.
+ * Cart items are stored in localStorage with key "viettea-cart-storage"
+ * and will NOT be lost when user logs in or registers.
+ * 
+ * Cart is only cleared when:
+ * 1. User successfully completes an order (createTransaction)
+ * 2. User manually removes items or clears cart
+ * 
+ * Login/Register/Logout actions do NOT affect cart state.
+ */
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({

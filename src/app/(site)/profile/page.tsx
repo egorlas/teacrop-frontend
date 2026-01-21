@@ -10,15 +10,23 @@ import { Separator } from "@/components/ui/separator";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "sonner";
-import { Loader2, Lock, User, Mail, Shield } from "lucide-react";
+import { Loader2, Lock, User, Mail, Shield, Phone } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, token, checkAuth } = useAuthStore();
+  const { user, isAuthenticated, token, checkAuth, updateUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
+  const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    if (user?.phone) {
+      setPhone(user.phone);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -154,6 +162,88 @@ export default function ProfilePage() {
                     </p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Cập nhật số điện thoại */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Phone className="h-5 w-5" />
+                  Số điện thoại
+                </CardTitle>
+                <CardDescription>
+                  Cập nhật số điện thoại để tự động điền khi đặt hàng
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setIsUpdatingPhone(true);
+                    try {
+                      const response = await fetch("/api/auth/update-profile", {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ phone: phone.trim() || null }),
+                      });
+
+                      if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error?.message || "Cập nhật số điện thoại thất bại");
+                      }
+
+                      // Refresh user data
+                      await updateUser(null);
+                      toast.success("Cập nhật số điện thoại thành công!");
+                    } catch (error: any) {
+                      toast.error(error.message || "Cập nhật số điện thoại thất bại. Vui lòng thử lại.");
+                    } finally {
+                      setIsUpdatingPhone(false);
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Số điện thoại</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="0912345678 hoặc +84912345678"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        disabled={isUpdatingPhone}
+                        className="pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Số điện thoại sẽ được tự động điền khi đặt hàng
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isUpdatingPhone}
+                  >
+                    {isUpdatingPhone ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="mr-2 h-4 w-4" />
+                        Cập nhật số điện thoại
+                      </>
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
 

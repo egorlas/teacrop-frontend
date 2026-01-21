@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Package, Phone, User, Calendar, FileText, Loader2, Eye, Edit, Check, MoreVertical, Truck, X, Copy, ExternalLink } from "lucide-react";
+import { Search, Package, Phone, User, Calendar, FileText, Loader2, Eye, Edit, Check, MoreVertical, Truck, X, Copy, ExternalLink, RotateCcw, Filter, DollarSign } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +40,7 @@ interface Order {
   customerPhone: string;
   contactAddress?: string;
   trackingReference?: string;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "pending" | "processing" | "shiping" | "shiped" | "cancelled";
   totalAmount: number;
   subtotal: number;
   shippingFee?: number;
@@ -73,6 +81,7 @@ export default function OrdersListPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -88,6 +97,16 @@ export default function OrdersListPage() {
   const [showOrderDetailDialog, setShowOrderDetailDialog] = useState(false);
   const [showOrderFullDetails, setShowOrderFullDetails] = useState(false);
   const [orderCopied, setOrderCopied] = useState(false);
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [refundTransactionId, setRefundTransactionId] = useState<number | null>(null);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundNotes, setRefundNotes] = useState("");
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+  const [showShippingPaymentDialog, setShowShippingPaymentDialog] = useState(false);
+  const [shippingFee, setShippingFee] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [discount, setDiscount] = useState("");
+  const [isUpdatingShippingPayment, setIsUpdatingShippingPayment] = useState(false);
 
   // Debounce search query
   useEffect(() => {
@@ -98,6 +117,11 @@ export default function OrdersListPage() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Reset to first page when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
 
   // Fetch orders
   const fetchOrders = useCallback(async () => {
@@ -113,6 +137,11 @@ export default function OrdersListPage() {
 
       if (debouncedSearch.trim()) {
         params.append("search", debouncedSearch.trim());
+      }
+
+      // Add status filter if selected (exclude "all")
+      if (statusFilter && statusFilter !== "all") {
+        params.append("filters[status][$eq]", statusFilter);
       }
 
       const response = await strapiClient<OrdersResponse>(
@@ -133,33 +162,44 @@ export default function OrdersListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, debouncedSearch, currentPage]);
+  }, [token, debouncedSearch, currentPage, statusFilter]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  const getStatusLabel = (status: string): string => {
+    const statusLabels: Record<string, string> = {
+      pending: "Đang xử lý",
+      processing: "Xác nhận đơn hàng",
+      shiping: "Đang giao hàng",
+      shiped: "Đã nhận hàng",
+      cancelled: "Đã hủy",
+    };
+    return statusLabels[status] || status;
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       pending: {
         className:
           "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-        label: "Đang chờ xử lý",
+        label: "Đang xử lý",
       },
       processing: {
         className:
           "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-        label: "Đang xử lý",
+        label: "Xác nhận đơn hàng",
       },
-      shipped: {
+      shiping: {
         className:
           "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-        label: "Đã gửi hàng",
+        label: "Đang giao hàng",
       },
-      delivered: {
+      shiped: {
         className:
           "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-        label: "Đã giao hàng",
+        label: "Đã nhận hàng",
       },
       cancelled: {
         className:
@@ -298,8 +338,221 @@ export default function OrdersListPage() {
     }
   };
 
-  // Handle update status to delivered
-  const handleUpdateStatusToDelivered = async () => {
+  // Handle update shipping fee and payment method
+  const handleUpdateShippingPayment = async () => {
+    if (!selectedOrder) return;
+
+    const fee = parseFloat(shippingFee);
+    if (isNaN(fee) || fee < 0) {
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Phí vận chuyển phải là số không âm",
+      });
+      return;
+    }
+
+    const discountValue = discount.trim() ? parseFloat(discount) : 0;
+    if (isNaN(discountValue) || discountValue < 0) {
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Giảm giá phải là số không âm",
+      });
+      return;
+    }
+
+    if (!paymentMethod) {
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Vui lòng chọn phương thức thanh toán",
+      });
+      return;
+    }
+
+    setIsUpdatingShippingPayment(true);
+
+    try {
+      const response = await strapiClient<{ data: Order }>(
+        `/api/orders/${selectedOrder.id}/shipping-payment`,
+        {
+          method: "PUT",
+          token,
+          requiresAuth: true,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            data: {
+              shippingFee: fee,
+              paymentMethod: paymentMethod,
+              discount: discountValue,
+            },
+          }),
+        }
+      );
+
+      // Update order in list
+      setOrders((prevOrders) =>
+        prevOrders.map((o) =>
+          o.id === selectedOrder.id
+            ? {
+                ...o,
+                shippingFee: response.data.shippingFee,
+                paymentMethod: response.data.paymentMethod,
+                discount: response.data.discount,
+                totalAmount: response.data.totalAmount,
+              }
+            : o
+        )
+      );
+
+      setShowShippingPaymentDialog(false);
+      setShippingFee("");
+      setPaymentMethod("");
+      setDiscount("");
+      setSelectedOrder(null);
+
+      addToast({
+        variant: "default",
+        title: "Thành công!",
+        description: "Giá ship, giảm giá và phương thức thanh toán đã được cập nhật.",
+      });
+
+      // Refresh orders list
+      fetchOrders();
+    } catch (error: any) {
+      console.error("Error updating shipping and payment:", error);
+
+      let errorMessage = "Không thể cập nhật thông tin. Vui lòng thử lại.";
+      let errorDetails = "";
+
+      if (error.response?.data?.error) {
+        const errorData = error.response.data.error;
+        errorMessage = errorData.message || errorMessage;
+        errorDetails = errorData.details || errorData.message || "";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      addToast({
+        variant: "destructive",
+        title: "Lỗi cập nhật",
+        description: errorDetails || errorMessage,
+      });
+    } finally {
+      setIsUpdatingShippingPayment(false);
+    }
+  };
+
+  // Handle refund request - fetch transaction and show refund dialog
+  const handleRefundRequest = async (order: Order) => {
+    if (!order) return;
+
+    try {
+      // Fetch transaction for this order
+      const response = await strapiClient<{ data: any[] }>(
+        `/api/transactions/order/${order.id}`,
+        {
+          method: "GET",
+          token,
+          requiresAuth: true,
+        }
+      );
+
+      const transactions = response.data || [];
+      
+      // Find completed transaction
+      const completedTransaction = transactions.find((t: any) => t.status === "completed");
+      
+      if (!completedTransaction) {
+        addToast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: "Không tìm thấy giao dịch đã hoàn thành cho đơn hàng này.",
+        });
+        return;
+      }
+
+      // Set refund transaction and show dialog
+      setRefundTransactionId(completedTransaction.id);
+      setSelectedOrder(order);
+      setRefundReason("");
+      setRefundNotes("");
+      setShowRefundDialog(true);
+    } catch (error: any) {
+      console.error("Error fetching transaction for refund:", error);
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể tải thông tin giao dịch. Vui lòng thử lại.",
+      });
+    }
+  };
+
+  // Handle refund processing
+  const handleRefund = async () => {
+    if (!refundTransactionId || !refundReason.trim()) {
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Vui lòng nhập lý do hoàn tiền",
+      });
+      return;
+    }
+
+    setIsProcessingRefund(true);
+    try {
+      const response = await strapiClient<{ data: any }>(
+        `/api/transactions/${refundTransactionId}/refund`,
+        {
+          method: "PUT",
+          token,
+          requiresAuth: true,
+          body: JSON.stringify({
+            data: {
+              reason: refundReason.trim(),
+              notes: refundNotes.trim() || undefined,
+            },
+          }),
+        }
+      );
+
+      // Close dialog and reset form
+      setShowRefundDialog(false);
+      setRefundTransactionId(null);
+      setSelectedOrder(null);
+      setRefundReason("");
+      setRefundNotes("");
+
+      addToast({
+        variant: "default",
+        title: "Thành công!",
+        description: `Đã hoàn tiền cho đơn hàng ${selectedOrder?.orderNumber || ""}. Tồn kho đã được hoàn lại tự động.`,
+      });
+
+      // Refresh orders list
+      fetchOrders();
+    } catch (error: any) {
+      console.error("Error processing refund:", error);
+      const errorMessage =
+        error.response?.data?.error?.message ||
+        error.message ||
+        "Không thể xử lý hoàn tiền. Vui lòng thử lại.";
+
+      addToast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: errorMessage,
+      });
+    } finally {
+      setIsProcessingRefund(false);
+    }
+  };
+
+  // Handle update status to shiped
+  const handleUpdateStatusToShiped = async () => {
     if (!selectedOrder) {
       return;
     }
@@ -313,7 +566,7 @@ export default function OrdersListPage() {
           token,
           requiresAuth: true,
           body: JSON.stringify({
-            data: { status: "delivered" },
+            data: { status: "shiped" },
           }),
         }
       );
@@ -331,7 +584,7 @@ export default function OrdersListPage() {
       addToast({
         variant: "default",
         title: "Thành công!",
-        description: `Đơn hàng ${selectedOrder.orderNumber} đã được cập nhật trạng thái thành "Đã giao hàng".`,
+        description: `Đơn hàng ${selectedOrder.orderNumber} đã được cập nhật trạng thái thành "Đã nhận hàng".`,
       });
 
       // Refresh orders list
@@ -378,26 +631,71 @@ export default function OrdersListPage() {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <Label htmlFor="search" className="mb-2 block">
-          Tìm kiếm đơn hàng
-        </Label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="search"
-            type="text"
-            placeholder="Tìm kiếm theo mã đơn hàng, mã tham chiếu, tên khách hàng, số điện thoại, hoặc ID nhân viên..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+      {/* Search and Filters */}
+      <div className="mb-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Search */}
+          <div>
+            <Label htmlFor="search" className="mb-2 block">
+              Tìm kiếm đơn hàng
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search"
+                type="text"
+                placeholder="Tìm kiếm theo mã đơn hàng, mã tham chiếu, tên khách hàng, số điện thoại..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <Label htmlFor="status-filter" className="mb-2 block">
+              Lọc theo trạng thái
+            </Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger id="status-filter" className="w-full">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Tất cả trạng thái" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="pending">Đang xử lý</SelectItem>
+                <SelectItem value="processing">Xác nhận đơn hàng</SelectItem>
+                <SelectItem value="shiping">Đang giao hàng</SelectItem>
+                <SelectItem value="shiped">Đã nhận hàng</SelectItem>
+                <SelectItem value="cancelled">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        {debouncedSearch && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Tìm thấy {totalOrders} đơn hàng với từ khóa "{debouncedSearch}"
-          </p>
+        
+        {(debouncedSearch || (statusFilter && statusFilter !== "all")) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>
+              Tìm thấy {totalOrders} đơn hàng
+              {debouncedSearch && ` với từ khóa "${debouncedSearch}"`}
+              {statusFilter && statusFilter !== "all" && ` với trạng thái "${getStatusLabel(statusFilter)}"`}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+              }}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Xóa bộ lọc
+            </Button>
+          </div>
         )}
       </div>
 
@@ -539,6 +837,21 @@ export default function OrdersListPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
+                              {order.status === "pending" && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setShippingFee(order.shippingFee?.toString() || "0");
+                                    setPaymentMethod(order.paymentMethod || "");
+                                    setDiscount(order.discount?.toString() || "0");
+                                    setShowShippingPaymentDialog(true);
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <DollarSign className="mr-2 h-4 w-4" />
+                                  Chỉnh sửa giá ship & thanh toán
+                                </DropdownMenuItem>
+                              )}
                               {!order.trackingReference && order.status !== "cancelled" && (
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -552,7 +865,7 @@ export default function OrdersListPage() {
                                   Cập nhật mã tham chiếu
                                 </DropdownMenuItem>
                               )}
-                              {order.status === "shipped" && (
+                              {order.status === "shiping" && (
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedOrder(order);
@@ -561,7 +874,16 @@ export default function OrdersListPage() {
                                   className="cursor-pointer"
                                 >
                                   <Truck className="mr-2 h-4 w-4" />
-                                  Đánh dấu đã giao hàng
+                                  Đánh dấu đã nhận hàng
+                                </DropdownMenuItem>
+                              )}
+                              {order.status === "shiped" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleRefundRequest(order)}
+                                  className="cursor-pointer text-orange-600 hover:text-orange-700"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Hoàn tiền
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -722,7 +1044,7 @@ export default function OrdersListPage() {
               Hủy
             </Button>
             <Button
-              onClick={handleUpdateStatusToDelivered}
+              onClick={handleUpdateStatusToShiped}
               disabled={isUpdatingStatus}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
@@ -734,7 +1056,7 @@ export default function OrdersListPage() {
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Xác nhận đã giao hàng
+                  Xác nhận đã nhận hàng
                 </>
               )}
             </Button>
@@ -746,9 +1068,9 @@ export default function OrdersListPage() {
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Xác nhận đã giao hàng</DialogTitle>
+            <DialogTitle>Xác nhận đã nhận hàng</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn đánh dấu đơn hàng {selectedOrder?.orderNumber} đã được giao hàng?
+              Bạn có chắc chắn muốn đánh dấu đơn hàng {selectedOrder?.orderNumber} đã được nhận hàng?
             </DialogDescription>
           </DialogHeader>
 
@@ -792,7 +1114,7 @@ export default function OrdersListPage() {
               Hủy
             </Button>
             <Button
-              onClick={handleUpdateStatusToDelivered}
+              onClick={handleUpdateStatusToShiped}
               disabled={isUpdatingStatus}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
@@ -804,7 +1126,7 @@ export default function OrdersListPage() {
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Xác nhận đã giao hàng
+                  Xác nhận đã nhận hàng
                 </>
               )}
             </Button>
@@ -1075,6 +1397,310 @@ export default function OrdersListPage() {
               className="w-full sm:w-auto"
             >
               Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refund Dialog */}
+      <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-orange-600" />
+              Hoàn tiền đơn hàng
+            </DialogTitle>
+            <DialogDescription>
+              Xác nhận hoàn tiền cho đơn hàng {selectedOrder?.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              {/* Order Info */}
+              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Mã đơn hàng:</span>
+                  <span className="font-mono text-sm font-semibold text-foreground">
+                    {selectedOrder.orderNumber}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Khách hàng:</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedOrder.customerName}
+                  </span>
+                </div>
+                {selectedOrder.customerPhone && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Số điện thoại:</span>
+                    <span className="text-sm text-foreground">{selectedOrder.customerPhone}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Số tiền hoàn lại:</span>
+                  <span className="text-lg font-bold text-orange-600">
+                    {formatCurrency(selectedOrder.totalAmount)}
+                  </span>
+                </div>
+                {selectedOrder.paymentMethod && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Hình thức thanh toán:
+                    </span>
+                    <span className="text-sm text-foreground">
+                      {getPaymentMethodLabel(selectedOrder.paymentMethod)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Warning */}
+              <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950 p-3">
+                <p className="text-xs text-orange-800 dark:text-orange-200">
+                  <strong>Lưu ý:</strong> Hành động này sẽ:
+                </p>
+                <ul className="list-disc list-inside text-xs text-orange-800 dark:text-orange-200 mt-1 space-y-0.5">
+                  <li>Cập nhật trạng thái giao dịch sang "Đã hoàn tiền"</li>
+                  <li>Chuyển trạng thái đơn hàng sang "Đã hủy"</li>
+                  <li>Tự động hoàn lại tồn kho</li>
+                </ul>
+              </div>
+
+              {/* Refund Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="refund-reason" className="text-sm font-medium">
+                  Lý do hoàn tiền <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="refund-reason"
+                  placeholder="Nhập lý do hoàn tiền (bắt buộc)"
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  className="min-h-[100px]"
+                  disabled={isProcessingRefund}
+                />
+              </div>
+
+              {/* Refund Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="refund-notes" className="text-sm font-medium">
+                  Ghi chú (tùy chọn)
+                </Label>
+                <Textarea
+                  id="refund-notes"
+                  placeholder="Thêm ghi chú nếu cần"
+                  value={refundNotes}
+                  onChange={(e) => setRefundNotes(e.target.value)}
+                  className="min-h-[80px]"
+                  disabled={isProcessingRefund}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRefundDialog(false);
+                setRefundTransactionId(null);
+                setSelectedOrder(null);
+                setRefundReason("");
+                setRefundNotes("");
+              }}
+              disabled={isProcessingRefund}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Hủy
+            </Button>
+            <Button
+              onClick={handleRefund}
+              disabled={isProcessingRefund || !refundReason.trim()}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isProcessingRefund ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Xác nhận hoàn tiền
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipping & Payment Edit Dialog */}
+      <Dialog open={showShippingPaymentDialog} onOpenChange={setShowShippingPaymentDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Chỉnh sửa giá ship & phương thức thanh toán
+            </DialogTitle>
+            <DialogDescription>
+              Chỉnh sửa thông tin cho đơn hàng {selectedOrder?.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              {/* Order Info */}
+              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Mã đơn hàng:</span>
+                  <span className="font-mono text-sm font-semibold text-foreground">
+                    {selectedOrder.orderNumber}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Khách hàng:</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedOrder.customerName}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Tạm tính:</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {formatCurrency(selectedOrder.subtotal)}
+                  </span>
+                </div>
+                {selectedOrder.discount && selectedOrder.discount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Giảm giá:</span>
+                    <span className="text-sm text-foreground">
+                      -{formatCurrency(selectedOrder.discount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Shipping Fee */}
+              <div className="space-y-2">
+                <Label htmlFor="shippingFee">Phí vận chuyển (VND)</Label>
+                <Input
+                  id="shippingFee"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={shippingFee}
+                  onChange={(e) => setShippingFee(e.target.value)}
+                  placeholder="Nhập phí vận chuyển"
+                  disabled={isUpdatingShippingPayment}
+                />
+              </div>
+
+              {/* Discount */}
+              <div className="space-y-2">
+                <Label htmlFor="discount">Giảm giá (VND)</Label>
+                <Input
+                  id="discount"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder="Nhập giảm giá (0 nếu không có)"
+                  disabled={isUpdatingShippingPayment}
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={setPaymentMethod}
+                  disabled={isUpdatingShippingPayment}
+                >
+                  <SelectTrigger id="paymentMethod">
+                    <SelectValue placeholder="Chọn phương thức thanh toán" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Tiền mặt</SelectItem>
+                    <SelectItem value="bank_transfer">Chuyển khoản ngân hàng</SelectItem>
+                    <SelectItem value="credit_card">Thẻ tín dụng</SelectItem>
+                    <SelectItem value="e_wallet">Ví điện tử</SelectItem>
+                    <SelectItem value="cod">Thanh toán khi nhận hàng (COD)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Total Preview */}
+              {shippingFee && !isNaN(parseFloat(shippingFee)) && (
+                <div className="rounded-lg border border-border bg-primary/5 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Tạm tính:</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {formatCurrency(selectedOrder.subtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Phí vận chuyển:</span>
+                    <span className="text-sm text-foreground">
+                      {formatCurrency(parseFloat(shippingFee))}
+                    </span>
+                  </div>
+                  {discount && !isNaN(parseFloat(discount)) && parseFloat(discount) > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Giảm giá:</span>
+                      <span className="text-sm text-red-600">
+                        -{formatCurrency(parseFloat(discount))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Tổng tiền (dự kiến):
+                    </span>
+                    <span className="text-lg font-bold text-primary">
+                      {formatCurrency(
+                        selectedOrder.subtotal +
+                          parseFloat(shippingFee) -
+                          (discount && !isNaN(parseFloat(discount)) ? parseFloat(discount) : 0)
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowShippingPaymentDialog(false);
+                setShippingFee("");
+                setPaymentMethod("");
+                setDiscount("");
+                setSelectedOrder(null);
+              }}
+              disabled={isUpdatingShippingPayment}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Hủy
+            </Button>
+            <Button
+              onClick={handleUpdateShippingPayment}
+              disabled={isUpdatingShippingPayment || !paymentMethod || !shippingFee}
+            >
+              {isUpdatingShippingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang cập nhật...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Cập nhật
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

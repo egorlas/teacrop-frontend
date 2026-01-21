@@ -34,14 +34,16 @@ export function AppShell({ children, rightPane, sidebar }: AppShellProps) {
   const [remainingTokens, setRemainingTokens] = useState<number | null>(null);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const { items } = useCartStore();
-  const { user, isAuthenticated, logout, checkAuth, isLoading, token } = useAuthStore();
+  const { user, isAuthenticated, logout, checkAuth, isLoading, token, hasHydrated } = useAuthStore();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isPostsPage = pathname === "/posts";
 
   useEffect(() => {
-    // Check auth status on mount
-    checkAuth();
-  }, [checkAuth]);
+    // Check auth status on mount, but only after hydration
+    if (hasHydrated) {
+      checkAuth();
+    }
+  }, [hasHydrated, checkAuth]);
 
   // Fetch remaining tokens when user is authenticated
   useEffect(() => {
@@ -82,10 +84,12 @@ export function AppShell({ children, rightPane, sidebar }: AppShellProps) {
     window.location.reload(); // Refresh to clear any cached data
   };
 
+  const isProfilePage = pathname === "/profile";
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* Header */}
-      {!isAuthPage && (
+      {/* Header - Hidden on profile page (Navbar from layout is used instead) */}
+      {!isAuthPage && !isProfilePage && (
       <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-2">
@@ -194,7 +198,7 @@ export function AppShell({ children, rightPane, sidebar }: AppShellProps) {
       {/* Main Content */}
       <div className={cn(
         "flex flex-1",
-        isAuthPage ? "overflow-y-auto" : "overflow-hidden"
+        isAuthPage || isProfilePage ? "overflow-y-auto" : "overflow-hidden"
       )}>
         {/* Sidebar (hidden on mobile) */}
         {sidebar && (
@@ -206,7 +210,7 @@ export function AppShell({ children, rightPane, sidebar }: AppShellProps) {
         {/* Chat Pane */}
         <main className={cn(
           "flex flex-1 flex-col",
-          isPostsPage ? "overflow-y-auto" : isAuthPage ? "overflow-y-auto" : "overflow-hidden"
+          isPostsPage || isProfilePage ? "overflow-y-auto" : isAuthPage ? "overflow-y-auto" : "overflow-hidden"
         )}>{children}</main>
 
         {/* Right Pane (hidden on mobile/tablet) */}

@@ -18,6 +18,7 @@ import { getProducts } from "@/lib/api";
 import type { Product } from "@/types/product";
 import { Search, X, ChevronDown, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Hero } from "@/components/Hero";
 
 type SortOption = {
   value: string;
@@ -49,6 +50,9 @@ function ProductsList() {
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const productType = searchParams.get("productType") || "";
+  const teaType = searchParams.get("teaType") || "";
+  const ingredient = searchParams.get("ingredient") || "";
+  const finishedGoods = searchParams.get("finished_goods") || "";
   const sort = searchParams.get("sort") || "createdAt:desc";
   const page = Number(searchParams.get("page")) || 1;
 
@@ -88,6 +92,21 @@ function ProductsList() {
         filters["productType"] = productType;
       }
 
+      // Tea type filter
+      if (teaType) {
+        filters["teaType"] = teaType;
+      }
+
+      // Ingredient filter
+      if (ingredient) {
+        filters["ingredient"] = ingredient;
+      }
+
+      // Finished goods filter
+      if (finishedGoods) {
+        filters["finished_goods"] = finishedGoods;
+      }
+
       const response = await getProducts({
         populate: "*",
         pagination: { page, pageSize: 12 },
@@ -104,7 +123,7 @@ function ProductsList() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, category, productType, sort, page]);
+  }, [search, category, productType, teaType, ingredient, finishedGoods, sort, page]);
 
   // Fetch products when filters change
   useEffect(() => {
@@ -123,6 +142,18 @@ function ProductsList() {
     updateParams({ productType: type || null });
   };
 
+  const handleTeaTypeChange = (value: string | null) => {
+    updateParams({ teaType: value || null });
+  };
+
+  const handleIngredientChange = (value: string | null) => {
+    updateParams({ ingredient: value || null });
+  };
+
+  const handleFinishedGoodsChange = (value: string | null) => {
+    updateParams({ finished_goods: value || null });
+  };
+
   const handleSortChange = (sortValue: string) => {
     updateParams({ sort: sortValue });
   };
@@ -132,12 +163,21 @@ function ProductsList() {
       search: null,
       category: null,
       productType: null,
+      teaType: null,
+      ingredient: null,
+      finished_goods: null,
       sort: "createdAt:desc",
     });
   };
 
   const hasActiveFilters =
-    search || category || productType || sort !== "createdAt:desc";
+    search ||
+    category ||
+    productType ||
+    teaType ||
+    ingredient ||
+    finishedGoods ||
+    sort !== "createdAt:desc";
 
   const currentSortLabel =
     SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sắp xếp";
@@ -175,7 +215,7 @@ function ProductsList() {
                 Phân Loại sản phẩm
                 {productType && (
                   <span className="ml-2 text-xs text-muted-foreground">
-                    ({productType === "trà" ? "Trà" : "Trà cụ"})
+                    ({productType === "tea" ? "Trà" : productType === "tea_tools" ? "Trà cụ" : productType})
                   </span>
                 )}
                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -193,20 +233,199 @@ function ProductsList() {
                 Tất cả
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => handleProductTypeChange("trà")}
+                onClick={() => handleProductTypeChange("tea")}
                 className={cn(
-                  productType === "trà" && "bg-accent"
+                  productType === "tea" && "bg-accent"
                 )}
               >
                 Trà
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => handleProductTypeChange("trà cụ")}
+                onClick={() => handleProductTypeChange("tea_tools")}
                 className={cn(
-                  productType === "trà cụ" && "bg-accent"
+                  productType === "tea_tools" && "bg-accent"
                 )}
               >
                 Trà cụ
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Tea Type Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                Loại trà
+                {teaType && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {teaType === "white"
+                      ? "(Bạch)"
+                      : teaType === "green"
+                      ? "(Lục)"
+                      : teaType === "yellow"
+                      ? "(Hoàng)"
+                      : teaType === "pink"
+                      ? "(Hồng)"
+                      : teaType === "black"
+                      ? "(Hắc)"
+                      : teaType === "scent"
+                      ? "(Hàm Hương)"
+                      : `(${teaType})`}
+                  </span>
+                )}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuLabel>Loại trà</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange(null)}
+                className={cn(!teaType && "bg-accent")}
+              >
+                Tất cả
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("white")}
+                className={cn(teaType === "white" && "bg-accent")}
+              >
+                Bạch
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("green")}
+                className={cn(teaType === "green" && "bg-accent")}
+              >
+                Lục
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("yellow")}
+                className={cn(teaType === "yellow" && "bg-accent")}
+              >
+                Hoàng
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("pink")}
+                className={cn(teaType === "pink" && "bg-accent")}
+              >
+                Hồng
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("black")}
+                className={cn(teaType === "black" && "bg-accent")}
+              >
+                Hắc
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleTeaTypeChange("scent")}
+                className={cn(teaType === "scent" && "bg-accent")}
+              >
+                Hàm Hương
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Ingredient Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                Thành phần
+                {ingredient && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {ingredient === "shan_tuyet"
+                      ? "(Shan Tuyết)"
+                      : ingredient === "trung_du"
+                      ? "(Trung Du)"
+                      : ingredient === "o_long"
+                      ? "(Ô Long)"
+                      : `(${ingredient})`}
+                  </span>
+                )}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Thành phần</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleIngredientChange(null)}
+                className={cn(!ingredient && "bg-accent")}
+              >
+                Tất cả
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleIngredientChange("shan_tuyet")}
+                className={cn(ingredient === "shan_tuyet" && "bg-accent")}
+              >
+                Shan Tuyết
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleIngredientChange("trung_du")}
+                className={cn(ingredient === "trung_du" && "bg-accent")}
+              >
+                Trung Du
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleIngredientChange("o_long")}
+                className={cn(ingredient === "o_long" && "bg-accent")}
+              >
+                Ô Long
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Finished Goods Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                Thành phẩm
+                {finishedGoods && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {finishedGoods === "diep_tra"
+                      ? "(Diệp trà)"
+                      : finishedGoods === "doan_tra"
+                      ? "(Đoàn trà)"
+                      : finishedGoods === "mat_tra"
+                      ? "(Mạt trà)"
+                      : finishedGoods === "vien_tra"
+                      ? "(Viên trà)"
+                      : `(${finishedGoods})`}
+                  </span>
+                )}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuLabel>Thành phẩm</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleFinishedGoodsChange(null)}
+                className={cn(!finishedGoods && "bg-accent")}
+              >
+                Tất cả
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFinishedGoodsChange("diep_tra")}
+                className={cn(finishedGoods === "diep_tra" && "bg-accent")}
+              >
+                Diệp trà
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFinishedGoodsChange("doan_tra")}
+                className={cn(finishedGoods === "doan_tra" && "bg-accent")}
+              >
+                Đoàn trà
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFinishedGoodsChange("mat_tra")}
+                className={cn(finishedGoods === "mat_tra" && "bg-accent")}
+              >
+                Mạt trà
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFinishedGoodsChange("vien_tra")}
+                className={cn(finishedGoods === "vien_tra" && "bg-accent")}
+              >
+                Viên trà
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -398,6 +617,9 @@ function KeyFeaturesSection() {
 export default function ProductsPage() {
   return (
     <>
+      {/* Hero section for Products page */}
+      <Hero />
+
       <section className="py-16 sm:py-24">
         <Container>
           <div className="mx-auto mb-12 max-w-2xl text-center">

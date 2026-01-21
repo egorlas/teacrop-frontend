@@ -6,6 +6,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  phone?: string;
   provider?: string;
   confirmed?: boolean;
   blocked?: boolean;
@@ -25,12 +26,14 @@ interface AuthState {
   isAuthenticated: boolean;
   isStaff: boolean;
   isLoading: boolean;
+  hasHydrated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
+  updateUser: (userData: any) => Promise<void>;
   clear: () => void;
 }
 
@@ -45,6 +48,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isStaff: false,
       isLoading: false,
+      hasHydrated: false,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -162,13 +166,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const { token } = get();
+        const { token, hasHydrated } = get();
+        
+        // Wait for hydration to complete before checking auth
+        if (!hasHydrated) {
+          // State hasn't been restored from localStorage yet
+          // Return early and let onRehydrateStorage handle it
+          return;
+        }
+        
         if (!token) {
-          set({ isAuthenticated: false, user: null });
+          set({ isAuthenticated: false, user: null, hasHydrated: true });
           return;
         }
 
-        set({ isLoading: true });
+        set({ isLoading: true, hasHydrated: true });
         try {
           const response = await fetch(`${API_URL}/api/users/me?populate=role`, {
             headers: {
@@ -229,6 +241,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isStaff,
             isLoading: false,
+            hasHydrated: true,
           });
         } catch (error) {
           // Clear role cookie on auth error
@@ -243,6 +256,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isStaff: false,
             isLoading: false,
+            hasHydrated: true,
           });
         }
       },
@@ -273,6 +287,71 @@ export const useAuthStore = create<AuthState>()(
         set({ token, isAuthenticated: !!token });
       },
 
+      updateUser: async (userData: any) => {
+        const { token } = get();
+        if (!token) {
+          throw new Error("Not authenticated");
+        }
+
+        try {
+          // Fetch updated user with role populated
+          const response = await fetch(`${API_URL}/api/users/me?populate=role`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch updated user");
+          }
+
+          const updatedUser = await response.json();
+          
+          // Extract and normalize role from response
+          let normalizedRole = null;
+          if (updatedUser.role) {
+            if (typeof updatedUser.role === "object" && updatedUser.role !== null) {
+              normalizedRole = updatedUser.role.name || updatedUser.role.type || null;
+            } else if (typeof updatedUser.role === "string") {
+              normalizedRole = updatedUser.role;
+            }
+          }
+          
+          if (normalizedRole && typeof normalizedRole === "string") {
+            normalizedRole = normalizedRole.toLowerCase();
+          }
+          
+          const userWithRole = {
+            ...updatedUser,
+            role: normalizedRole ? {
+              ...(typeof updatedUser.role === "object" ? updatedUser.role : {}),
+              name: normalizedRole,
+            } : null,
+          };
+          
+          const role = normalizedRole;
+          const isStaff = canAccessStaff(role);
+          
+          // Set role cookie
+          if (typeof document !== "undefined") {
+            if (isStaff) {
+              document.cookie = `role=${role}; path=/; max-age=86400`;
+            } else {
+              document.cookie = "role=; path=/; max-age=0";
+            }
+          }
+          
+          set({
+            user: userWithRole,
+            role,
+            isStaff,
+          });
+        } catch (error) {
+          console.error("Error updating user:", error);
+          throw error;
+        }
+      },
+
       clear: () => {
         // Clear role cookie
         // TODO: Clear httpOnly cookie via route handler
@@ -298,6 +377,40 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         isStaff: state.isStaff,
       }),
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error("Error rehydrating auth state:", error);
+          // Mark as hydrated even on error
+          if (state) {
+            state.hasHydrated = true;
+          }
+          return;
+        }
+        
+        // Mark as hydrated first
+        if (state) {
+          state.hasHydrated = true;
+        }
+        
+        // After state is rehydrated from localStorage, verify token with server
+        if (state?.token) {
+          // Call checkAuth to verify token is still valid
+          // Use setTimeout to ensure this runs after component mounts
+          setTimeout(() => {
+            state.checkAuth().catch((error) => {
+              console.error("Error verifying auth after rehydration:", error);
+            });
+          }, 100);
+        } else {
+          // No token, ensure state is cleared
+          if (state) {
+            state.isAuthenticated = false;
+            state.user = null;
+            state.role = null;
+            state.isStaff = false;
+          }
+        }
+      },
     }
   )
 );

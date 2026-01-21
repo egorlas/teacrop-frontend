@@ -35,7 +35,7 @@ export function FloatingButtons() {
       <CartModal open={cartModalOpen} onOpenChange={setCartModalOpen} />
       <div
         className={cn(
-          "fixed z-50 flex flex-col gap-4",
+          "fixed z-50 flex flex-col",
           // Position: bottom right corner
           "bottom-4 right-4 sm:bottom-6 sm:right-6",
           // Safe area for mobile devices
@@ -65,7 +65,7 @@ export function FloatingButtons() {
           title="Giỏ hàng"
         >
           <ShoppingCart className="h-6 w-6 sm:h-7 sm:w-7 relative z-10" />
-          
+
           {/* Badge showing item count */}
           {itemCount > 0 && (
             <span
@@ -80,27 +80,6 @@ export function FloatingButtons() {
               {itemCount > 99 ? "99+" : itemCount}
             </span>
           )}
-        </button>
-
-        {/* Chat Button - Blue/Primary color */}
-        <button
-          onClick={() => router.push("/agent-chat")}
-          className={cn(
-            "flex h-12 w-12 items-center justify-center",
-            "rounded-full bg-blue-500 text-white",
-            "shadow-lg shadow-blue-500/50",
-            "transition-all duration-200 ease-out",
-            "hover:scale-110 hover:shadow-xl hover:shadow-blue-500/60 hover:bg-blue-600",
-            "active:scale-95",
-            "cursor-pointer",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-            // Desktop: larger size
-            "sm:h-14 sm:w-14",
-          )}
-          aria-label="Chat với AI"
-          title="Chat với AI"
-        >
-          <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7 relative z-10" />
         </button>
       </div>
     </>

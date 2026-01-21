@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Server-side only: Use API_URL (runtime) or fallback to NEXT_PUBLIC_API_URL (build-time) or default
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://192.168.31.187:1337";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -66,28 +69,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate transaction ID
-    const transactionId = `cash-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    // Transform items to match backend format
+    const products = items.map((item) => ({
+      id: item.id,
+      name: item.title,
+      title: item.title,
+      price: item.price,
+      quantity: item.qty,
+      variant: item.variant || null,
+    }));
 
-    // TODO: In production, save order to database here
-    // await saveCashOrder({
-    //   transactionId,
-    //   items,
-    //   total,
-    //   customerInfo: {
-    //     name: name.trim(),
-    //     address: address.trim(),
-    //     phone: normalizedPhone,
-    //   },
-    //   paymentMethod: "cash",
-    //   status: "pending",
-    //   createdAt: new Date(),
-    // });
+    // Get auth header if user is logged in
+    const authHeader = req.headers.get("authorization");
+
+    // Create order in backend with status = "pending" (customer order)
+    // If user is authenticated, backend will automatically link order to customer
+    const orderResponse = await fetch(`${API_URL}/api/orders`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authHeader && { Authorization: authHeader }),
+      },
+      body: JSON.stringify({
+        data: {
+          customerName: name.trim(),
+          customerPhone: normalizedPhone,
+          contactAddress: address.trim(),
+          products: products,
+          subtotal: total,
+          shippingFee: 0,
+          discount: 0,
+          totalAmount: total,
+          paymentMethod: "cash",
+          status: "pending", // Customer order starts with pending
+          notes: null,
+        },
+      }),
+    });
+
+    if (!orderResponse.ok) {
+      const errorData = await orderResponse.json();
+      const errorMessage = errorData.error?.message || errorData.message || "Không thể tạo đơn hàng";
+      console.error("Backend order creation error:", errorData);
+      return NextResponse.json(
+        { error: errorMessage, details: errorData.error?.details || errorData.details },
+        { status: orderResponse.status }
+      );
+    }
+
+    const orderData = await orderResponse.json();
+    const order = orderData.data;
 
     return NextResponse.json({
       success: true,
-      transaction_id: transactionId,
-      id: transactionId, // Alias for compatibility
+      order_id: order.id,
+      orderNumber: order.orderNumber,
+      id: order.orderNumber, // For compatibility with existing code
+      transaction_id: order.orderNumber, // For compatibility with existing code
       items,
       total,
       customer_info: {
@@ -96,9 +134,9 @@ export async function POST(req: NextRequest) {
         phone: normalizedPhone,
       },
       payment_method: "cash",
-      status: "pending",
-      created_at: new Date().toISOString(),
-      message: "Cash payment order created successfully",
+      status: order.status,
+      created_at: order.createdAt || new Date().toISOString(),
+      message: "Đặt hàng thành công! Đơn hàng của bạn đang được xử lý.",
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

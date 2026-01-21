@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ShoppingCart, Package, Warehouse, List } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, Warehouse, List, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -32,6 +32,11 @@ const navItems: NavItem[] = [
     label: "Inventory",
     href: "/staff/inventory",
     icon: Package,
+  },
+  {
+    label: "Transactions",
+    href: "/staff/transactions",
+    icon: Receipt,
   },
   {
     label: "Warehouse",

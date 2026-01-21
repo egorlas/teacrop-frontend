@@ -13,7 +13,19 @@ export type Product = {
   // Optional backend fields (can be added if needed):
   sku?: string; // From backend: sku
   inventory?: number; // From backend: inventory
-  productType?: "trà" | "trà cụ"; // From backend: productType (enum)
+  productType?: "tea" | "tea_tools"; // From backend: productType (enum)
+  // New enum-based filters from backend Product content-type:
+  teaType?: string; // From backend: teaType (enum)
+  ingredient?: string; // From backend: ingredient (enum)
+  finished_goods?: string; // From backend: finished_goods (enum)
+  // Attributes JSON fields:
+  attributes?: {
+    brand?: string;
+    expiry?: string;
+    origin?: string;
+    weight?: string;
+    package?: string;
+  };
   // Frontend-only fields:
   reviews?: Review[]; // Đánh giá
   comments?: Comment[]; // Bình luận

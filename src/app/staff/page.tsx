@@ -14,6 +14,9 @@ import {
   Calendar,
   TrendingUp,
   AlertCircle,
+  Receipt,
+  DollarSign,
+  RotateCcw,
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { strapiClient } from "@/lib/strapi/strapiClient";
@@ -25,7 +28,7 @@ import { Button } from "@/components/ui/button";
 interface Order {
   id: number;
   orderNumber: string;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: "pending" | "processing" | "shiping" | "shiped" | "cancelled";
   totalAmount: number;
   createdAt: string;
 }
@@ -68,8 +71,8 @@ interface OrderStats {
   byStatus: {
     pending: number;
     processing: number;
-    shipped: number;
-    delivered: number;
+    shiping: number;
+    shiped: number;
     cancelled: number;
   };
   today: number;
@@ -95,22 +98,22 @@ function transformProduct(product: Product): Product {
 function getStatusConfig(status: string) {
   const configs = {
     pending: {
-      label: "Đang chờ",
+      label: "Đang xử lý",
       icon: Clock,
       className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
     },
     processing: {
-      label: "Đang xử lý",
+      label: "Xác nhận đơn hàng",
       icon: Package,
       className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
     },
-    shipped: {
-      label: "Đã gửi hàng",
+    shiping: {
+      label: "Đang giao hàng",
       icon: Truck,
       className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
     },
-    delivered: {
-      label: "Đã giao",
+    shiped: {
+      label: "Đã nhận hàng",
       icon: CheckCircle,
       className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
     },
@@ -131,8 +134,8 @@ export default function StaffDashboardPage() {
     byStatus: {
       pending: 0,
       processing: 0,
-      shipped: 0,
-      delivered: 0,
+      shiping: 0,
+      shiped: 0,
       cancelled: 0,
     },
     today: 0,
@@ -140,6 +143,16 @@ export default function StaffDashboardPage() {
     thisYear: 0,
   });
   const [lowInventoryProducts, setLowInventoryProducts] = useState<Product[]>([]);
+  const [transactionStats, setTransactionStats] = useState<{
+    totalTransactions: number;
+    completed: { count: number; amount: number };
+    refunded: { count: number; amount: number };
+    pending: { count: number; amount: number };
+    failed: { count: number; amount: number };
+    grossRevenue: number;
+    totalRefunds: number;
+    netRevenue: number;
+  } | null>(null);
 
   // Calculate date ranges
   const getDateRanges = () => {
@@ -185,8 +198,8 @@ export default function StaffDashboardPage() {
         byStatus: {
           pending: 0,
           processing: 0,
-          shipped: 0,
-          delivered: 0,
+          shiping: 0,
+          shiped: 0,
           cancelled: 0,
         },
         today: 0,
@@ -216,6 +229,34 @@ export default function StaffDashboardPage() {
       setOrderStats(stats);
     } catch (error: any) {
       console.error("Error fetching order stats:", error);
+    }
+  }, [token]);
+
+  // Fetch transaction statistics
+  const fetchTransactionStats = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await strapiClient<{
+        data: {
+          totalTransactions: number;
+          completed: { count: number; amount: number };
+          refunded: { count: number; amount: number };
+          pending: { count: number; amount: number };
+          failed: { count: number; amount: number };
+          grossRevenue: number;
+          totalRefunds: number;
+          netRevenue: number;
+        };
+      }>("/api/transactions/stats", {
+        method: "GET",
+        token,
+        requiresAuth: true,
+      });
+
+      setTransactionStats(response.data);
+    } catch (error: any) {
+      console.error("Error fetching transaction stats:", error);
     }
   }, [token]);
 
@@ -260,10 +301,14 @@ export default function StaffDashboardPage() {
     }
 
     setIsLoading(true);
-    Promise.all([fetchOrderStats(), fetchLowInventoryProducts()]).finally(() => {
+    Promise.all([
+      fetchOrderStats(),
+      fetchLowInventoryProducts(),
+      fetchTransactionStats(),
+    ]).finally(() => {
       setIsLoading(false);
     });
-  }, [token, fetchOrderStats, fetchLowInventoryProducts]);
+  }, [token, fetchOrderStats, fetchLowInventoryProducts, fetchTransactionStats]);
 
   return (
     <div className="p-6 space-y-6">
@@ -369,6 +414,140 @@ export default function StaffDashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Revenue Statistics Section */}
+          {transactionStats && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Thống kê Doanh thu
+              </h2>
+
+              {/* Revenue Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Doanh thu thực nhận</CardTitle>
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                      }).format(transactionStats.netRevenue)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Sau khi trừ hoàn tiền</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Doanh thu gộp</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                      }).format(transactionStats.grossRevenue)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {transactionStats.completed.count} giao dịch hoàn thành
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Tổng hoàn tiền</CardTitle>
+                    <RotateCcw className="h-4 w-4 text-orange-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {new Intl.NumberFormat("vi-VN", {
+                        style: "currency",
+                        currency: "VND",
+                      }).format(transactionStats.totalRefunds)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {transactionStats.refunded.count} giao dịch đã hoàn tiền
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Transaction Status Breakdown */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Giao dịch theo trạng thái</CardTitle>
+                  <CardDescription>
+                    Số lượng và tổng tiền giao dịch được phân loại theo từng trạng thái
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Completed */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border bg-green-50 dark:bg-green-950">
+                      <CheckCircle className="h-6 w-6 mb-2 text-green-600" />
+                      <div className="text-2xl font-bold mb-1">{transactionStats.completed.count}</div>
+                      <div className="text-xs text-green-600 font-semibold mb-1">Hoàn thành</div>
+                      <div className="text-sm font-bold text-green-700 dark:text-green-300">
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                          maximumFractionDigits: 0,
+                        }).format(transactionStats.completed.amount)}
+                      </div>
+                    </div>
+
+                    {/* Refunded */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border bg-orange-50 dark:bg-orange-950">
+                      <RotateCcw className="h-6 w-6 mb-2 text-orange-600" />
+                      <div className="text-2xl font-bold mb-1">{transactionStats.refunded.count}</div>
+                      <div className="text-xs text-orange-600 font-semibold mb-1">Đã hoàn tiền</div>
+                      <div className="text-sm font-bold text-orange-700 dark:text-orange-300">
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                          maximumFractionDigits: 0,
+                        }).format(transactionStats.refunded.amount)}
+                      </div>
+                    </div>
+
+                    {/* Pending */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border bg-yellow-50 dark:bg-yellow-950">
+                      <Clock className="h-6 w-6 mb-2 text-yellow-600" />
+                      <div className="text-2xl font-bold mb-1">{transactionStats.pending.count}</div>
+                      <div className="text-xs text-yellow-600 font-semibold mb-1">Đang chờ</div>
+                      <div className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                          maximumFractionDigits: 0,
+                        }).format(transactionStats.pending.amount)}
+                      </div>
+                    </div>
+
+                    {/* Failed */}
+                    <div className="flex flex-col items-center justify-center p-4 rounded-lg border bg-red-50 dark:bg-red-950">
+                      <XCircle className="h-6 w-6 mb-2 text-red-600" />
+                      <div className="text-2xl font-bold mb-1">{transactionStats.failed.count}</div>
+                      <div className="text-xs text-red-600 font-semibold mb-1">Thất bại</div>
+                      <div className="text-sm font-bold text-red-700 dark:text-red-300">
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                          maximumFractionDigits: 0,
+                        }).format(transactionStats.failed.amount)}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Inventory Analytics Section */}
           <div className="space-y-4">
@@ -497,6 +676,12 @@ export default function StaffDashboardPage() {
                   <Button variant="outline">
                     <Package className="h-4 w-4 mr-2" />
                     Quản lý kho hàng
+                  </Button>
+                </Link>
+                <Link href="/staff/transactions">
+                  <Button variant="outline">
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Quản lý giao dịch
                   </Button>
                 </Link>
               </div>
