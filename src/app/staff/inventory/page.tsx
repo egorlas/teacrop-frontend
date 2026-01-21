@@ -550,15 +550,20 @@ export default function InventoryPage() {
                                   let imagePreview = "";
                                   const images = isFlat ? fullProduct?.images : (fullProduct?.attributes as any)?.images;
                                   if (images) {
-                                    if (typeof images === 'object' && 'url' in images) {
+                                    const baseUrl =
+                                      process.env.NEXT_PUBLIC_STRAPI_URL ||
+                                      process.env.NEXT_PUBLIC_API_URL ||
+                                      "http://192.168.31.187:1337";
+
+                                    if (typeof images === "object" && "url" in images) {
                                       const imageData = images as any;
-                                      imagePreview = imageData.url?.startsWith('/') 
-                                        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337'}${imageData.url}`
+                                      imagePreview = imageData.url?.startsWith("/")
+                                        ? `${baseUrl}${imageData.url}`
                                         : imageData.url || "";
                                     } else if (Array.isArray(images) && images.length > 0) {
                                       const imageData = images[0] as any;
-                                      imagePreview = imageData.url?.startsWith('/')
-                                        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337'}${imageData.url}`
+                                      imagePreview = imageData.url?.startsWith("/")
+                                        ? `${baseUrl}${imageData.url}`
                                         : imageData.url || "";
                                     }
                                   }
@@ -1241,7 +1246,10 @@ export default function InventoryPage() {
                         uploadFormData.append("sku", productForm.sku.trim());
                       }
 
-                      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337';
+                      const apiUrl =
+                        process.env.NEXT_PUBLIC_STRAPI_URL ||
+                        process.env.NEXT_PUBLIC_API_URL ||
+                        "http://192.168.31.187:1337";
                       const uploadResponse = await fetch(
                         `${apiUrl}/api/products/upload-image`,
                         {

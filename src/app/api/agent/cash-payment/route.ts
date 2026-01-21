@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Server-side only: Use API_URL (runtime) or fallback to NEXT_PUBLIC_API_URL (build-time) or default
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://192.168.31.187:1337";
+// Server-side only: Strapi base URL
+// Prefer runtime API_URL, then NEXT_PUBLIC_STRAPI_URL, then legacy NEXT_PUBLIC_API_URL, then default
+const STRAPI_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // Create order in backend with status = "pending" (customer order)
     // If user is authenticated, backend will automatically link order to customer
-    const orderResponse = await fetch(`${API_URL}/api/orders`, {
+    const orderResponse = await fetch(`${STRAPI_URL}/api/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

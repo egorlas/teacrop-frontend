@@ -37,7 +37,11 @@ interface AuthState {
   clear: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.31.187:1337";
+// Base URL for Strapi auth APIs
+const API_URL =
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 export const useAuthStore = create<AuthState>()(
   persist(

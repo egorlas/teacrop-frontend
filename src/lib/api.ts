@@ -2,7 +2,12 @@ import type { Product } from "@/types/product";
 import type { Message } from "@/types/chat";
 import type { BlogPost, BlogListResponse } from "@/types/blog";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337';
+// Base URL for Strapi API (client + server)
+// Prefer STRAPI URL, fallback to legacy NEXT_PUBLIC_API_URL, then default
+const API_URL =
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 // Fallback image URL from env (configurable in .env.local)
 const FALLBACK_PRODUCT_IMAGE = process.env.NEXT_PUBLIC_FALLBACK_PRODUCT_IMAGE || '';

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Server-side only: Use API_URL (runtime) or fallback to NEXT_PUBLIC_API_URL (build-time) or default
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://192.168.31.187:1337";
+// Server-side only: Strapi base URL
+const STRAPI_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -15,7 +19,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const response = await fetch(`${API_URL}/api/users/me`, {
+    const response = await fetch(`${STRAPI_URL}/api/users/me`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

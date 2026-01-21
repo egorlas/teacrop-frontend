@@ -60,7 +60,11 @@ interface OrdersResponse {
   };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.31.187:1337';
+// Strapi base URL for client-side fetches
+const API_URL =
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 function getStatusBadge(status: string) {
   const statusConfig = {

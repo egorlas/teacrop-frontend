@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Server-side only: Use API_URL (runtime) or fallback to NEXT_PUBLIC_API_URL (build-time) or default
-const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://192.168.31.187:1337";
+// Server-side only: Strapi base URL
+const STRAPI_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +13,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Forward request to backend
-    const response = await fetch(`${API_URL}/api/blog/crawl`, {
+    const response = await fetch(`${STRAPI_URL}/api/blog/crawl`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
