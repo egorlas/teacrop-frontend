@@ -5,8 +5,12 @@
  */
 
 // TODO: Add STRAPI_URL to .env.local
-// NEXT_PUBLIC_STRAPI_URL=http://192.168.31.187:1337
-const STRAPI_URL = process.env.NEXT_PUBLIC_STRAPI_URL || "http://192.168.31.187:1337";
+// NEXT_PUBLIC_STRAPI_URL=https://your-strapi-domain.com
+// Fallback to NEXT_PUBLIC_API_URL for backward compatibility, then local IP
+const STRAPI_URL =
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://192.168.31.187:1337";
 
 export interface StrapiRequestOptions extends RequestInit {
   token?: string | null;
