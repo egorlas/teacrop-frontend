@@ -7,23 +7,23 @@ import { cn } from "@/lib/utils";
 
 const teaImages = [
   {
-    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754659/strapi/DSCF_0255_4f912822f1.jpg",
+    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768978787/strapi/medium_DSCF_0237_5ef32ce588.jpg",
     alt: "Trà xanh cao cấp",
   },
   {
-    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754659/strapi/DSCF_0243_6f101070d9.jpg",
+    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1772769009/DSCF0355_1_ekebry.jpg",
     alt: "Trà đen thơm ngon",
   },
   {
-    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754659/strapi/DSCF_0247_898a41e840.jpg",
+    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1772769008/DSCF0259_ahkwrj.jpg",
     alt: "Trà hoa nhài",
   },
   {
-    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754659/strapi/DSCF_0209_60d94a62ab.jpg",
+    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1772769008/DSCF0259_ahkwrj.jpg",
     alt: "Trà Việt Nam truyền thống",
   },
   {
-    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754658/strapi/DSCF_0239_b8f1560592.jpg",
+    src: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1772769008/DSCF0219_vvxqsm.jpg",
     alt: "Trà Việt Nam truyền thống",
   },
 ];

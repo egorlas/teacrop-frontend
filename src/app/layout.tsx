@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = buildMetadata({
-  title: "Tea Store",
+  title: "Tea Love",
   description: "Trà Việt Nam chất lượng cao, mang đến hương vị đậm đà truyền thống",
   manifest: "/manifest.webmanifest",
   themeColor: "#0f172a",

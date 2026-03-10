@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
@@ -92,10 +93,15 @@ export function AppShell({ children, rightPane, sidebar }: AppShellProps) {
       {!isAuthPage && !isProfilePage && (
       <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-foreground">
-              Tea
-            </span>
+          <Link href="/" className="flex items-center" aria-label="Về trang chủ">
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={250}
+              height={150}
+              className="h-8 w-auto object-contain"
+              priority
+            />
           </Link>
         </div>
         <div className="flex items-center gap-2">

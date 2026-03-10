@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Container } from "@/components/Container";
 
 const footerLinks = {
@@ -22,7 +23,15 @@ export function Footer() {
       <Container>
         <div className="grid grid-cols-1 gap-8 py-12 md:grid-cols-3">
           <div>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Tea Store</h2>
+            <Link href="/" className="mb-4 inline-block">
+              <Image
+                src="/logo.svg"
+                alt="Logo"
+                width={150}
+                height={100}
+                className="h-[100px] w-[150px] object-contain"
+              />
+            </Link>
             <p className="text-sm text-muted-foreground">
               Trà Việt Nam chất lượng cao, mang đến hương vị đậm đà truyền thống
             </p>
@@ -63,7 +72,7 @@ export function Footer() {
 
         <div className="border-t border-border py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © {currentYear} Tea Store. Tất cả quyền được bảo lưu.
+            © {currentYear} Viettea. Tất cả quyền được bảo lưu.
           </p>
         </div>
       </Container>

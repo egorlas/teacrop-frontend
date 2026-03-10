@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X, LogIn, User, LogOut, UserCircle, Settings, Package, Store } from "lucide-react";
@@ -63,8 +64,15 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <Container>
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-foreground" onClick={closeMenu}>
-            Tea Store
+          <Link href="/" className="flex items-center" onClick={closeMenu} aria-label="Về trang chủ">
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={150}
+              height={100}
+              className="h-[100px] w-[150px] object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}
