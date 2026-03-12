@@ -40,8 +40,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const shareImage =
+    "https://res.cloudinary.com/dzepc9mrh/image/upload/v1773301630/Tea_Love_fsaoqq.png";
+
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        <meta property="og:image" content={shareImage} />
+        <meta property="twitter:image" content={shareImage} />
+        <meta property="twitter:url" content="tea.love" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${audiowide.variable} min-h-screen antialiased`}
       >
