@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Container } from "@/components/Container";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n";
 
 const teaImages = [
   {
@@ -29,6 +30,7 @@ const teaImages = [
 ];
 
 export function Hero() {
+  const { t } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
@@ -71,24 +73,23 @@ export function Hero() {
         <Container>
           <div className="mx-auto max-w-3xl text-center">
             <h1 className="mb-6 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-lg">
-              Trà Việt Nam Chất Lượng Cao
+              {t("hero.title")}
             </h1>
             <p className="mb-8 text-lg text-white/90 sm:text-xl drop-shadow-md">
-              Khám phá hương vị đậm đà truyền thống với bộ sưu tập trà Việt Nam được chọn lọc
-              kỹ lưỡng. Mỗi tách trà là một trải nghiệm tuyệt vời.
+              {t("hero.subtitle")}
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
               <Link
                 href="/products"
                 className="inline-flex items-center justify-center rounded-lg bg-primary px-8 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shadow-lg"
               >
-                Xem sản phẩm
+                {t("hero.ctaProducts")}
               </Link>
               <Link
                 href="/about"
                 className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 shadow-lg"
               >
-                Tìm hiểu thêm
+                {t("hero.ctaLearn")}
               </Link>
             </div>
           </div>
@@ -108,7 +109,7 @@ export function Hero() {
                 ? "w-8 bg-white"
                 : "w-2 bg-white/50 hover:bg-white/75",
             )}
-            aria-label={`Đi tới slide ${index + 1}`}
+            aria-label={t("hero.slideLabel", { index: index + 1 })}
           />
         ))}
       </div>

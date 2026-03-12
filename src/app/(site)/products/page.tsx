@@ -1,35 +1,55 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Container } from "@/components/Container";
 import { ProductCard } from "@/components/ProductCard";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { getProducts } from "@/lib/api";
 import type { Product } from "@/types/product";
-import { Search, X, ChevronDown, Filter } from "lucide-react";
+import {
+  List,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Filter,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Hero } from "@/components/Hero";
 
-type SortOption = {
-  value: string;
-  label: string;
-};
+const PRODUCT_TYPES = [
+  { value: "tea", label: "Trà" },
+  { value: "tea_tools", label: "Trà cụ" },
+];
 
-const SORT_OPTIONS: SortOption[] = [
-  { value: "title:asc", label: "Tên A-Z" },
-  { value: "title:desc", label: "Tên Z-A" },
-  { value: "createdAt:desc", label: "Mới nhất" },
-  { value: "createdAt:asc", label: "Cũ nhất" },
+const TEA_TYPES = [
+  { value: "white", label: "Bạch" },
+  { value: "green", label: "Lục" },
+  { value: "yellow", label: "Hoàng" },
+  { value: "pink", label: "Hồng" },
+  { value: "black", label: "Hắc" },
+  { value: "scent", label: "Hàm Hương" },
+];
+
+const INGREDIENTS = [
+  { value: "shan_tuyet", label: "Shan Tuyết" },
+  { value: "trung_du", label: "Trung Du" },
+  { value: "o_long", label: "Ô Long" },
+];
+
+const FINISHED_GOODS = [
+  { value: "diep_tra", label: "Diệp trà" },
+  { value: "doan_tra", label: "Đoàn trà" },
+  { value: "mat_tra", label: "Mạt trà" },
+  { value: "vien_tra", label: "Viên trà" },
+];
+
+/** Mỗi mục danh mục chỉ toggle một param (key + value) */
+const CATEGORY_ITEMS: { label: string; paramKey: string; paramValue: string }[] = [
+  { label: "Trà", paramKey: "productType", paramValue: "tea" },
+  { label: "Trà xanh", paramKey: "teaType", paramValue: "green" },
+  { label: "Trà đen", paramKey: "teaType", paramValue: "black" },
+  { label: "Trà ô long", paramKey: "ingredient", paramValue: "o_long" },
+  { label: "Trà cụ", paramKey: "productType", paramValue: "tea_tools" },
 ];
 
 function ProductsList() {
@@ -45,19 +65,20 @@ function ProductsList() {
     pageCount: 1,
     total: 0,
   });
+  const [filterOpen, setFilterOpen] = useState(true);
+  const [categoryExpanded, setCategoryExpanded] = useState(true);
+  const [priceSortOpen, setPriceSortOpen] = useState(false);
+  const priceSortRef = useRef<HTMLDivElement>(null);
 
-  // Get current filter values from URL
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
-  const productType = searchParams.get("productType") || "";
-  const teaType = searchParams.get("teaType") || "";
-  const ingredient = searchParams.get("ingredient") || "";
-  const finishedGoods = searchParams.get("finished_goods") || "";
+  const productTypes = searchParams.getAll("productType");
+  const teaTypes = searchParams.getAll("teaType");
+  const ingredients = searchParams.getAll("ingredient");
+  const finishedGoodsList = searchParams.getAll("finished_goods");
   const sort = searchParams.get("sort") || "createdAt:desc";
   const page = Number(searchParams.get("page")) || 1;
-  const [searchInput, setSearchInput] = useState(search);
 
-  // Update URL params
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -68,466 +89,356 @@ function ProductsList() {
           params.set(key, value);
         }
       });
-      // Reset to page 1 when filters change (except when updating page itself)
-      if (!("page" in updates)) {
-        params.set("page", "1");
-      }
+      if (!("page" in updates)) params.set("page", "1");
       router.push(`${pathname}?${params.toString()}`);
     },
     [router, pathname, searchParams]
   );
 
-  // Keep local search input in sync when URL search param changes (e.g. back/forward)
+  /** Bật/tắt một giá trị trong bộ lọc nhiều lựa chọn */
+  const toggleMultiFilter = useCallback(
+    (paramKey: string, value: string) => {
+      const current = searchParams.getAll(paramKey);
+      const next = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete(paramKey);
+      next.forEach((v) => params.append(paramKey, v));
+      params.set("page", "1");
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [router, pathname, searchParams]
+  );
+
+  // Dùng queryString làm dependency ổn định để tránh gọi API liên tục (mảng từ getAll() tạo reference mới mỗi render)
+  const queryString = searchParams.toString();
+
   useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
+    let cancelled = false;
+    const params = new URLSearchParams(queryString);
+    const searchVal = params.get("search") || "";
+    const categoryVal = params.get("category") || "";
+    const productTypesVal = params.getAll("productType");
+    const teaTypesVal = params.getAll("teaType");
+    const ingredientsVal = params.getAll("ingredient");
+    const finishedGoodsVal = params.getAll("finished_goods");
+    const sortVal = params.get("sort") || "createdAt:desc";
+    const pageVal = Number(params.get("page")) || 1;
 
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    const value = searchInput.trim();
-    updateParams({ search: value || null });
-  };
+    const filters: Record<string, string | string[]> = {};
+    if (categoryVal) filters["product_category.slug"] = categoryVal;
+    if (productTypesVal.length) filters["productType"] = productTypesVal;
+    if (teaTypesVal.length) filters["teaType"] = teaTypesVal;
+    if (ingredientsVal.length) filters["ingredient"] = ingredientsVal;
+    if (finishedGoodsVal.length) filters["finished_goods"] = finishedGoodsVal;
 
-  // Fetch products
-  const fetchProducts = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const filters: Record<string, any> = {};
-
-      // Category filter
-      if (category) {
-        filters["product_category.slug"] = category;
-      }
-
-      // Product type filter
-      if (productType) {
-        filters["productType"] = productType;
-      }
-
-      // Tea type filter
-      if (teaType) {
-        filters["teaType"] = teaType;
-      }
-
-      // Ingredient filter
-      if (ingredient) {
-        filters["ingredient"] = ingredient;
-      }
-
-      // Finished goods filter
-      if (finishedGoods) {
-        filters["finished_goods"] = finishedGoods;
-      }
-
-      const response = await getProducts({
-        populate: "*",
-        pagination: { page, pageSize: 12 },
-        search: search || undefined,
-        filters: Object.keys(filters).length > 0 ? filters : undefined,
-        sort: [sort],
+    setIsLoading(true);
+    getProducts({
+      populate: "*",
+      pagination: { page: pageVal, pageSize: 12 },
+      search: searchVal || undefined,
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
+      sort: [sortVal],
+    })
+      .then((response) => {
+        if (!cancelled) {
+          setProducts(response.data);
+          setPagination(response.meta.pagination);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("Error fetching products:", error);
+          setProducts([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
 
-      setProducts(response.data);
-      setPagination(response.meta.pagination);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      setProducts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [search, category, productType, teaType, ingredient, finishedGoods, sort, page]);
+    return () => {
+      cancelled = true;
+    };
+  }, [queryString]);
 
-  // Fetch products when filters change
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (priceSortRef.current && !priceSortRef.current.contains(e.target as Node)) {
+        setPriceSortOpen(false);
+      }
+    };
+    if (priceSortOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [priceSortOpen]);
 
-  const handleSearchChange = (value: string) => {
-    updateParams({ search: value });
+  const handleSort = (value: string) => {
+    setPriceSortOpen(false);
+    updateParams({ sort: value });
   };
 
-  const handleCategoryChange = (categorySlug: string | null) => {
-    updateParams({ category: categorySlug || null });
-  };
-
-  const handleProductTypeChange = (type: string | null) => {
-    updateParams({ productType: type || null });
-  };
-
-  const handleTeaTypeChange = (value: string | null) => {
-    updateParams({ teaType: value || null });
-  };
-
-  const handleIngredientChange = (value: string | null) => {
-    updateParams({ ingredient: value || null });
-  };
-
-  const handleFinishedGoodsChange = (value: string | null) => {
-    updateParams({ finished_goods: value || null });
-  };
-
-  const handleSortChange = (sortValue: string) => {
-    updateParams({ sort: sortValue });
-  };
-
-  const clearFilters = () => {
-    updateParams({
-      search: null,
-      category: null,
-      productType: null,
-      teaType: null,
-      ingredient: null,
-      finished_goods: null,
-      sort: "createdAt:desc",
-    });
-  };
-
-  const hasActiveFilters =
-    search ||
-    category ||
-    productType ||
-    teaType ||
-    ingredient ||
-    finishedGoods ||
-    sort !== "createdAt:desc";
-
-  const currentSortLabel =
-    SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "Sắp xếp";
+  const isSortActive = (value: string) => sort === value;
+  const isPriceSort = (v: string) => v === "price:asc" || v === "price:desc";
 
   return (
-    <div className="space-y-6">
-      {/* Search and Filters Bar */}
-      <div className="space-y-4">
-        {/* Search Input */}
-        <form
-          className="relative"
-          onSubmit={handleSearchSubmit}
-        >
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Tìm kiếm sản phẩm..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-10 pr-10"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchInput("");
-                updateParams({ search: null });
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </form>
-
-        {/* Filters Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Product Type Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Phân Loại sản phẩm
-                {productType && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ({productType === "tea" ? "Trà" : productType === "tea_tools" ? "Trà cụ" : productType})
-                  </span>
-                )}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel>Phân Loại sản phẩm</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleProductTypeChange(null)}
-                className={cn(
-                  !productType && "bg-accent"
-                )}
-              >
-                Tất cả
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleProductTypeChange("tea")}
-                className={cn(
-                  productType === "tea" && "bg-accent"
-                )}
-              >
-                Trà
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleProductTypeChange("tea_tools")}
-                className={cn(
-                  productType === "tea_tools" && "bg-accent"
-                )}
-              >
-                Trà cụ
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Tea Type Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Loại trà
-                {teaType && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {teaType === "white"
-                      ? "(Bạch)"
-                      : teaType === "green"
-                      ? "(Lục)"
-                      : teaType === "yellow"
-                      ? "(Hoàng)"
-                      : teaType === "pink"
-                      ? "(Hồng)"
-                      : teaType === "black"
-                      ? "(Hắc)"
-                      : teaType === "scent"
-                      ? "(Hàm Hương)"
-                      : `(${teaType})`}
-                  </span>
-                )}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel>Loại trà</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange(null)}
-                className={cn(!teaType && "bg-accent")}
-              >
-                Tất cả
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("white")}
-                className={cn(teaType === "white" && "bg-accent")}
-              >
-                Bạch
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("green")}
-                className={cn(teaType === "green" && "bg-accent")}
-              >
-                Lục
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("yellow")}
-                className={cn(teaType === "yellow" && "bg-accent")}
-              >
-                Hoàng
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("pink")}
-                className={cn(teaType === "pink" && "bg-accent")}
-              >
-                Hồng
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("black")}
-                className={cn(teaType === "black" && "bg-accent")}
-              >
-                Hắc
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleTeaTypeChange("scent")}
-                className={cn(teaType === "scent" && "bg-accent")}
-              >
-                Hàm Hương
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Ingredient Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Thành phần
-                {ingredient && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {ingredient === "shan_tuyet"
-                      ? "(Shan Tuyết)"
-                      : ingredient === "trung_du"
-                      ? "(Trung Du)"
-                      : ingredient === "o_long"
-                      ? "(Ô Long)"
-                      : `(${ingredient})`}
-                  </span>
-                )}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Thành phần</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleIngredientChange(null)}
-                className={cn(!ingredient && "bg-accent")}
-              >
-                Tất cả
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleIngredientChange("shan_tuyet")}
-                className={cn(ingredient === "shan_tuyet" && "bg-accent")}
-              >
-                Shan Tuyết
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleIngredientChange("trung_du")}
-                className={cn(ingredient === "trung_du" && "bg-accent")}
-              >
-                Trung Du
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleIngredientChange("o_long")}
-                className={cn(ingredient === "o_long" && "bg-accent")}
-              >
-                Ô Long
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Finished Goods Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Thành phẩm
-                {finishedGoods && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {finishedGoods === "diep_tra"
-                      ? "(Diệp trà)"
-                      : finishedGoods === "doan_tra"
-                      ? "(Đoàn trà)"
-                      : finishedGoods === "mat_tra"
-                      ? "(Mạt trà)"
-                      : finishedGoods === "vien_tra"
-                      ? "(Viên trà)"
-                      : `(${finishedGoods})`}
-                  </span>
-                )}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel>Thành phẩm</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleFinishedGoodsChange(null)}
-                className={cn(!finishedGoods && "bg-accent")}
-              >
-                Tất cả
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleFinishedGoodsChange("diep_tra")}
-                className={cn(finishedGoods === "diep_tra" && "bg-accent")}
-              >
-                Diệp trà
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleFinishedGoodsChange("doan_tra")}
-                className={cn(finishedGoods === "doan_tra" && "bg-accent")}
-              >
-                Đoàn trà
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleFinishedGoodsChange("mat_tra")}
-                className={cn(finishedGoods === "mat_tra" && "bg-accent")}
-              >
-                Mạt trà
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleFinishedGoodsChange("vien_tra")}
-                className={cn(finishedGoods === "vien_tra" && "bg-accent")}
-              >
-                Viên trà
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Sort Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-auto">
-                <Filter className="mr-2 h-4 w-4" />
-                {currentSortLabel}
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Sắp xếp theo</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {SORT_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => handleSortChange(option.value)}
-                  className={cn(
-                    sort === option.value && "bg-accent"
-                  )}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground"
-            >
-              <X className="mr-2 h-4 w-4" />
-              Xóa bộ lọc
-            </Button>
+    <div className="flex flex-col gap-6 py-6 lg:flex-row">
+      {/* Left sidebar - Tất Cả Danh Mục + BỘ LỌC */}
+      <aside className="w-full shrink-0 rounded-lg border border-border bg-card p-4 lg:w-56 xl:w-64">
+        {/* Tất Cả Danh Mục */}
+        <div className="border-b border-border pb-4">
+          <button
+            type="button"
+            onClick={() => setCategoryExpanded(!categoryExpanded)}
+            className="flex w-full items-center justify-between gap-2 py-1.5 text-left text-sm font-semibold text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <List className="h-4 w-4 text-muted-foreground" />
+              Tất Cả Danh Mục
+            </span>
+            {categoryExpanded ? (
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            )}
+          </button>
+          {categoryExpanded && (
+            <ul className="mt-2 space-y-0.5 pl-1">
+              {CATEGORY_ITEMS.map((item) => {
+                const currentList = searchParams.getAll(item.paramKey);
+                const isActive = currentList.includes(item.paramValue);
+                return (
+                  <li key={`${item.paramKey}-${item.paramValue}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMultiFilter(item.paramKey, item.paramValue)}
+                      className={cn(
+                        "w-full rounded px-2 py-1.5 text-left text-sm",
+                        isActive
+                          ? "bg-primary/10 font-medium text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
-      </div>
 
-      {/* Results Count */}
-      {!isLoading && (
-        <div className="text-sm text-muted-foreground">
-          Tìm thấy {pagination.total} sản phẩm
-          {search && ` cho "${search}"`}
+        {/* BỘ LỌC TÌM KIẾM */}
+        <div className="pt-4">
+          <button
+            type="button"
+            onClick={() => setFilterOpen(!filterOpen)}
+            className="flex w-full items-center justify-between gap-2 py-1.5 text-left text-sm font-semibold uppercase tracking-wide text-foreground"
+          >
+            Bộ Lọc Tìm Kiếm
+            {filterOpen ? (
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            )}
+          </button>
+          {filterOpen && (
+            <div className="mt-3 space-y-4">
+              {/* Phân loại sản phẩm - tích nhiều lựa chọn */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Phân loại sản phẩm
+                </p>
+                <div className="space-y-1.5">
+                  {PRODUCT_TYPES.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={productTypes.includes(opt.value)}
+                        onChange={() => toggleMultiFilter("productType", opt.value)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Loại trà - tích nhiều lựa chọn */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Loại trà
+                </p>
+                <div className="space-y-1.5">
+                  {TEA_TYPES.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={teaTypes.includes(opt.value)}
+                        onChange={() => toggleMultiFilter("teaType", opt.value)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Thành phần - tích nhiều lựa chọn */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Thành phần
+                </p>
+                <div className="space-y-1.5">
+                  {INGREDIENTS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={ingredients.includes(opt.value)}
+                        onChange={() => toggleMultiFilter("ingredient", opt.value)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Thành phẩm - tích nhiều lựa chọn */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Thành phẩm
+                </p>
+                <div className="space-y-1.5">
+                  {FINISHED_GOODS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={finishedGoodsList.includes(opt.value)}
+                        onChange={() => toggleMultiFilter("finished_goods", opt.value)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </aside>
 
-      {/* Products Grid */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Đang tải...</p>
-        </div>
-      ) : products.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {pagination.pageCount > 1 && (
-            <div className="flex items-center justify-center gap-4 pt-8">
+      {/* Right - Sort bar + Product grid + Pagination */}
+      <div className="min-w-0 flex-1">
+        {/* Sort bar: Sắp xếp theo [Phổ Biến] [Mới Nhất] [Bán Chạy] [Giá ▼] -------- 1/7 < > */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">
+              Sắp xếp theo
+            </span>
+            <div className="flex flex-wrap items-center gap-1">
               <Button
-                variant="outline"
-                onClick={() => updateParams({ page: String(Math.max(1, page - 1)) })}
-                disabled={page === 1}
+                variant={isSortActive("createdAt:desc") ? "default" : "ghost"}
+                size="sm"
+                className="h-8 text-sm"
+                onClick={() => handleSort("createdAt:desc")}
               >
-                Trước
+                Phổ Biến
               </Button>
+              <Button
+                variant={isSortActive("createdAt:desc") ? "default" : "ghost"}
+                size="sm"
+                className="h-8 text-sm"
+                onClick={() => handleSort("createdAt:desc")}
+              >
+                Mới Nhất
+              </Button>
+              <Button
+                variant={isSortActive("title:asc") ? "default" : "ghost"}
+                size="sm"
+                className="h-8 text-sm"
+                onClick={() => handleSort("title:asc")}
+              >
+                Bán Chạy
+              </Button>
+              <div className="relative" ref={priceSortRef}>
+                <Button
+                  variant={
+                    isPriceSort(sort) ? "default" : "ghost"
+                  }
+                  size="sm"
+                  className="h-8 gap-1 text-sm"
+                  onClick={() => setPriceSortOpen((o) => !o)}
+                >
+                  Giá
+                  <ChevronDown
+                    className={cn("h-4 w-4 transition-transform", priceSortOpen && "rotate-180")}
+                  />
+                </Button>
+                {priceSortOpen && (
+                  <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-border bg-popover py-1 shadow-md">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("price:asc")}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm",
+                        sort === "price:asc"
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      Giá thấp đến cao
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSort("price:desc")}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm",
+                        sort === "price:desc"
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      Giá cao đến thấp
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Pagination indicator */}
+          {pagination.pageCount > 1 && (
+            <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">
-                Trang {pagination.page} / {pagination.pageCount}
+                {page}/{pagination.pageCount}
               </span>
               <Button
                 variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() =>
+                  updateParams({
+                    page: String(Math.max(1, page - 1)),
+                  })
+                }
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
                 onClick={() =>
                   updateParams({
                     page: String(Math.min(pagination.pageCount, page + 1)),
@@ -535,29 +446,89 @@ function ProductsList() {
                 }
                 disabled={page === pagination.pageCount}
               >
-                Sau
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           )}
-        </>
-      ) : (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">
-            {hasActiveFilters
-              ? "Không tìm thấy sản phẩm nào với bộ lọc hiện tại."
-              : "Chưa có sản phẩm nào."}
+        </div>
+
+        {/* Results count */}
+        {!isLoading && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Tìm thấy {pagination.total} sản phẩm
+            {search && ` cho "${search}"`}
           </p>
-          {hasActiveFilters && (
+        )}
+
+        {/* Product grid - 5 cols like image */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-muted-foreground">Đang tải...</p>
+          </div>
+        ) : products.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {/* Bottom pagination */}
+            {pagination.pageCount > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    updateParams({
+                      page: String(Math.max(1, page - 1)),
+                    })
+                  }
+                  disabled={page === 1}
+                >
+                  Trước
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Trang {page} / {pagination.pageCount}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    updateParams({
+                      page: String(Math.min(pagination.pageCount, page + 1)),
+                    })
+                  }
+                  disabled={page === pagination.pageCount}
+                >
+                  Sau
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="py-16 text-center">
+            <p className="text-muted-foreground">
+              Không tìm thấy sản phẩm nào với bộ lọc hiện tại.
+            </p>
             <Button
               variant="outline"
-              onClick={clearFilters}
+              onClick={() =>
+                updateParams({
+                  search: null,
+                  category: null,
+                  productType: null,
+                  teaType: null,
+                  ingredient: null,
+                  finished_goods: null,
+                  sort: "createdAt:desc",
+                })
+              }
               className="mt-4"
             >
               Xóa bộ lọc
             </Button>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -565,33 +536,41 @@ function ProductsList() {
 const KEY_FEATURES = [
   {
     title: "Chất lượng cao cấp",
-    description: "Sản phẩm được chọn lọc từ các vùng trà nổi tiếng, đảm bảo hương vị đậm đà và nguyên chất",
-    image: "https://i.pinimg.com/1200x/5e/9e/2d/5e9e2d379c4934d333247091f0e5509a.jpg",
+    description:
+      "Sản phẩm được chọn lọc từ các vùng trà nổi tiếng, đảm bảo hương vị đậm đà và nguyên chất",
+    image:
+      "https://i.pinimg.com/1200x/5e/9e/2d/5e9e2d379c4934d333247091f0e5509a.jpg",
     icon: "⭐",
   },
   {
     title: "Giao hàng nhanh chóng",
-    description: "Miễn phí vận chuyển cho đơn hàng trên 500.000đ. Giao hàng trong 24h tại nội thành",
-    image: "https://i.pinimg.com/736x/a4/c7/87/a4c787e6965646bb782136cad81dc254.jpg",
+    description:
+      "Miễn phí vận chuyển cho đơn hàng trên 500.000đ. Giao hàng trong 24h tại nội thành",
+    image:
+      "https://i.pinimg.com/736x/a4/c7/87/a4c787e6965646bb782136cad81dc254.jpg",
     icon: "🚚",
   },
   {
     title: "Đóng gói cẩn thận",
-    description: "Bao bì chuyên dụng giữ nguyên hương vị và chất lượng trà, đảm bảo sản phẩm đến tay bạn hoàn hảo",
-    image: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754658/strapi/large_DSCF_0247_898a41e840.jpg",
+    description:
+      "Bao bì chuyên dụng giữ nguyên hương vị và chất lượng trà, đảm bảo sản phẩm đến tay bạn hoàn hảo",
+    image:
+      "https://res.cloudinary.com/dzepc9mrh/image/upload/v1768754658/strapi/large_DSCF_0247_898a41e840.jpg",
     icon: "📦",
   },
   {
     title: "Hỗ trợ 24/7",
-    description: "Đội ngũ tư vấn chuyên nghiệp luôn sẵn sàng hỗ trợ bạn mọi lúc, mọi nơi",
-    image: "https://i.pinimg.com/736x/44/49/85/444985873037e3281d2ec8adc49f4bc9.jpg",
+    description:
+      "Đội ngũ tư vấn chuyên nghiệp luôn sẵn sàng hỗ trợ bạn mọi lúc, mọi nơi",
+    image:
+      "https://i.pinimg.com/736x/44/49/85/444985873037e3281d2ec8adc49f4bc9.jpg",
     icon: "💬",
   },
 ];
 
 function KeyFeaturesSection() {
   return (
-    <section className="py-16 sm:py-24 bg-muted/30">
+    <section className="border-t border-border bg-muted/30 py-16 sm:py-24">
       <Container>
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -605,7 +584,7 @@ function KeyFeaturesSection() {
           {KEY_FEATURES.map((feature, index) => (
             <div
               key={index}
-              className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:shadow-lg hover:border-primary/50"
+              className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-lg"
             >
               <div className="relative aspect-video w-full overflow-hidden bg-muted">
                 <img
@@ -638,32 +617,29 @@ function KeyFeaturesSection() {
 export default function ProductsPage() {
   return (
     <>
-      {/* Hero section for Products page */}
-      <Hero />
-
-      <section className="py-16 sm:py-24">
+      <section className="border-b border-border bg-card py-6">
         <Container>
-          <div className="mx-auto mb-12 max-w-2xl text-center">
-            <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-              Sản phẩm của chúng tôi
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Khám phá bộ sưu tập trà Việt Nam chất lượng cao được chọn lọc kỹ lưỡng
-            </p>
-          </div>
-
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground">Đang tải...</p>
-              </div>
-            }
-          >
-            <ProductsList />
-          </Suspense>
+          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
+            Sản phẩm
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Khám phá bộ sưu tập trà Việt Nam chất lượng cao
+          </p>
         </Container>
       </section>
-      
+
+      <Container>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Đang tải...</p>
+            </div>
+          }
+        >
+          <ProductsList />
+        </Suspense>
+      </Container>
+
       <KeyFeaturesSection />
     </>
   );

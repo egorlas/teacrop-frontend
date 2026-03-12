@@ -1,79 +1,66 @@
-// Simple i18n helper - ready for future expansion to English
-const translations: Record<string, Record<string, string>> = {
-  vi: {
-    // Chat
-    "chat.welcome": "Chào mừng đến với Tea Support",
-    "chat.placeholder": "Nhập tin nhắn...",
-    "chat.send": "Gửi",
-    "chat.typing": "Đang nhập...",
-    "chat.assistant.typing": "Assistant đang soạn tin...",
-    
-    // Cart
-    "cart.title": "Giỏ hàng",
-    "cart.empty": "Giỏ hàng trống",
-    "cart.add": "Thêm vào giỏ",
-    "cart.remove": "Xóa",
-    "cart.total": "Tổng tiền",
-    "cart.create_order": "Tạo đơn",
-    "cart.item_added": "Đã thêm vào giỏ",
-    
-    // Products
-    "product.add_to_cart": "Thêm vào giỏ",
-    "product.price": "Giá",
-    
-    // Order
-    "order.summary": "Tóm tắt đơn hàng",
-    "order.create": "Tạo đơn",
-    "order.items": "Sản phẩm",
-    "order.total": "Tổng cộng",
-    
-    // Settings
-    "settings.title": "Cài đặt",
-    "settings.name": "Tên hiển thị",
-    "settings.phone": "Số điện thoại",
-    "settings.remember": "Ghi nhớ sở thích",
-    "settings.reset_chat": "Xóa hội thoại",
-    "settings.export_chat": "Xuất chat (JSON)",
-    "settings.reset_confirm": "Bạn có chắc muốn xóa toàn bộ hội thoại?",
-    
-    // Common
-    "common.copy": "Sao chép",
-    "common.copied": "Đã sao chép",
-    "common.close": "Đóng",
-    "common.save": "Lưu",
-    "common.cancel": "Hủy",
-    "common.error": "Đã xảy ra lỗi",
-  },
+import { useLocaleStore } from "@/store/locale";
+import vi from "@/messages/vi.json";
+import en from "@/messages/en.json";
+
+export type Locale = "vi" | "en";
+
+const messages: Record<Locale, Record<string, string>> = {
+  vi: vi as Record<string, string>,
+  en: en as Record<string, string>,
 };
 
-type Locale = "vi" | "en";
+function translate(
+  locale: Locale,
+  key: string,
+  paramsOrFallback?: Record<string, string | number> | string
+): string {
+  let text = messages[locale]?.[key] || messages.vi?.[key] || key;
+  if (paramsOrFallback !== undefined) {
+    if (typeof paramsOrFallback === "string") {
+      return text !== key ? text : paramsOrFallback;
+    }
+    for (const [k, v] of Object.entries(paramsOrFallback)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+    }
+  }
+  return text;
+}
 
-let currentLocale: Locale = "vi";
+export function useTranslation() {
+  const locale = useLocaleStore((s) => s.locale);
+  const t = (
+    key: string,
+    paramsOrFallback?: Record<string, string | number> | string
+  ) => translate(locale, key, paramsOrFallback);
+  return { t, locale };
+}
+
+export function t(
+  key: string,
+  paramsOrFallback?: Record<string, string | number> | string
+): string {
+  const locale = useLocaleStore.getState().locale;
+  return translate(locale, key, paramsOrFallback);
+}
+
+// Legacy exports for components that use getTranslations
+export function getLocale(): Locale {
+  return useLocaleStore.getState().locale;
+}
 
 export function setLocale(locale: Locale) {
-  currentLocale = locale;
+  useLocaleStore.getState().setLocale(locale);
 }
 
-export function getLocale(): Locale {
-  return currentLocale;
-}
-
-export function t(key: string, fallback?: string): string {
-  return translations[currentLocale]?.[key] || fallback || key;
-}
-
-// Helper to get all translations for a namespace
 export function getTranslations(namespace: string): Record<string, string> {
+  const locale = useLocaleStore.getState().locale;
   const prefix = `${namespace}.`;
   const result: Record<string, string> = {};
-  const localeTranslations = translations[currentLocale] || {};
-  
-  for (const [key, value] of Object.entries(localeTranslations)) {
+  const localeMessages = messages[locale] || messages.vi || {};
+  for (const [key, value] of Object.entries(localeMessages)) {
     if (key.startsWith(prefix)) {
       result[key.slice(prefix.length)] = value;
     }
   }
-  
   return result;
 }
-

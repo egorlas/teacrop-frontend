@@ -288,65 +288,112 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
 }
 
 /**
- * Fetch all products from Strapi with filters, search, and sorting
+ * Low-level helper để fetch JSON từ Strapi.
+ * - server: có thể bật ISR qua next.revalidate
+ * - client: có thể chọn realtime (no-store) hoặc cache mặc định của trình duyệt
  */
-export async function getProducts(params?: {
-  populate?: string;
-  pagination?: { page?: number; pageSize?: number };
-  filters?: Record<string, any>;
-  search?: string;
-  sort?: string[];
-}): Promise<{ data: Product[]; meta: { pagination: { page: number; pageSize: number; pageCount: number; total: number } } }> {
+async function fetchJson<T>(
+  path: string,
+  {
+    searchParams,
+    revalidate,
+    realtime,
+    useAuth = true,
+  }: {
+    searchParams?: URLSearchParams;
+    revalidate?: number;
+    realtime?: boolean;
+    /** có truyền Authorization hay không; API public nên để false */
+    useAuth?: boolean;
+  } = {},
+): Promise<T> {
+  const url = `${API_URL}${path}${searchParams ? `?${searchParams.toString()}` : ""}`;
+
+  const baseHeaders: HeadersInit = { "Content-Type": "application/json" };
+  const headers = useAuth ? getHeaders() : baseHeaders;
+
+  if (typeof window === "undefined") {
+    // Server-side: để route/server component quyết định ISR qua export revalidate.
+    // Ở đây chỉ cấu hình cache đơn giản, tránh truyền next.revalidate từ client.
+    const res = await fetch(url, {
+      headers,
+      cache: realtime ? "no-store" : revalidate === 0 ? "no-store" : "force-cache",
+    });
+    if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+    return res.json();
+  }
+
+  // Client-side: tuỳ chọn realtime hoặc để trình duyệt cache
+  const res = await fetch(url, {
+    headers,
+    cache: realtime ? "no-store" : "default",
+  });
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetch all products from Strapi with filters, search, and sorting.
+ *
+ * Component-level:
+ * - revalidate: số giây ISR khi gọi từ server (SSR/ISR)
+ * - realtime: true khi cần luôn gọi API (bỏ qua cache)
+ */
+export async function getProducts(
+  params?: {
+    populate?: string;
+    pagination?: { page?: number; pageSize?: number };
+    filters?: Record<string, any>;
+    search?: string;
+    sort?: string[];
+  } & { revalidate?: number; realtime?: boolean },
+): Promise<{ data: Product[]; meta: { pagination: { page: number; pageSize: number; pageCount: number; total: number } } }> {
   try {
+    const { revalidate, realtime, ...rest } = params || {};
     const queryParams = new URLSearchParams({
-      'pagination[pageSize]': String(params?.pagination?.pageSize || 12),
-      'pagination[page]': String(params?.pagination?.page || 1),
-      'populate': params?.populate || '*',
+      'pagination[pageSize]': String(rest.pagination?.pageSize || 12),
+      'pagination[page]': String(rest.pagination?.page || 1),
+      'populate': rest.populate || '*',
     });
 
     // Add search filter (search in title, description, SKU)
-    if (params?.search && params.search.trim()) {
-      const searchTerm = params.search.trim();
+    if (rest.search && rest.search.trim()) {
+      const searchTerm = rest.search.trim();
       queryParams.append('filters[$or][0][title][$containsi]', searchTerm);
       queryParams.append('filters[$or][1][sku][$containsi]', searchTerm);
       queryParams.append('filters[$or][2][description][$containsi]', searchTerm);
     }
 
-    // Add filters (support nested filters for Strapi v5)
-    if (params?.filters) {
-      Object.entries(params.filters).forEach(([key, value]) => {
+    // Add filters (support nested + multi-value $in for Strapi v5)
+    if (rest.filters) {
+      Object.entries(rest.filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          if (typeof value === 'object' && '$eq' in value) {
-            // Handle nested filter like { $eq: 'value' }
+          if (Array.isArray(value) && value.length > 0) {
+            value.forEach((v, i) => {
+              queryParams.append(`filters[${key}][$in][${i}]`, String(v));
+            });
+          } else if (typeof value === 'object' && '$eq' in value) {
             queryParams.append(`filters[${key}][$eq]`, String(value.$eq));
-          } else {
-            // Simple filter value
-            queryParams.append(`filters[${key}][$eq]`, String(value));
+          } else if (typeof value === 'string') {
+            queryParams.append(`filters[${key}][$eq]`, value);
           }
         }
       });
     }
 
     // Add sort
-    if (params?.sort && params.sort.length > 0) {
-      params.sort.forEach((sortItem, index) => {
+    if (rest.sort && rest.sort.length > 0) {
+      rest.sort.forEach((sortItem, index) => {
         queryParams.append(`sort[${index}]`, sortItem);
       });
     }
 
-    // Products API is public, no authentication needed
-    const response = await fetch(`${API_URL}/api/products?${queryParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const data = await fetchJson<StrapiListResponse<StrapiProduct>>("/api/products", {
+      searchParams: queryParams,
+      revalidate,
+      realtime,
+      useAuth: false, // Products API public – không gửi Authorization
     });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch products: ${response.status}`);
-    }
-
-    const data: StrapiListResponse<StrapiProduct> = await response.json();
     return {
       data: data.data.map(transformProduct),
       meta: {

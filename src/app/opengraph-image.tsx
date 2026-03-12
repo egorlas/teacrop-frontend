@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Viettea - Trà Việt Nam chất lượng cao";
+export const alt = "Tea Love - Trà Việt Nam chất lượng cao";
 export const size = {
   width: 1200,
   height: 630,
@@ -18,7 +18,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+          background: "linear-gradient(135deg, #f472b6 0%, #fb7185 100%)",
           width: "100%",
           height: "100%",
           display: "flex",

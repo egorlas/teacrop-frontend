@@ -1,11 +1,11 @@
 {
-  "name": "Viettea Sales - Trà Việt Nam Chất Lượng Cao",
-  "short_name": "Viettea Sales",
-  "description": "Webapp bán hàng trà Việt Nam với AI Agent hỗ trợ",
-  "start_url": "/agent-chat",
+  "name": "Tea Love - Trà Việt Nam Chất Lượng Cao",
+  "short_name": "Tea Love",
+  "description": "Trà Việt Nam chất lượng cao, mang đến hương vị đậm đà truyền thống",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f172a",
+  "background_color": "#fdf2f8",
+  "theme_color": "#f9a8d4",
   "orientation": "portrait-primary",
   "icons": [
     {

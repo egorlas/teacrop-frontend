@@ -1,52 +1,49 @@
-import Link from "next/link";
-import Image from "next/image";
-import { Container } from "@/components/Container";
+"use client";
 
-const footerLinks = {
-  pages: [
-    { href: "/", label: "Trang chủ" },
-    { href: "/about", label: "Về chúng tôi" },
-    { href: "/products", label: "Sản phẩm" },
-    { href: "/contact", label: "Liên hệ" },
-  ],
-  legal: [
-    { href: "#", label: "Chính sách bảo mật" },
-    { href: "#", label: "Điều khoản sử dụng" },
-  ],
-};
+import Link from "next/link";
+import { Container } from "@/components/Container";
+import { useTranslation } from "@/lib/i18n";
 
 export function Footer() {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
 
+  const footerLinks = {
+    pages: [
+      { href: "/", labelKey: "footer.linkHome" },
+      { href: "/about", labelKey: "footer.linkAbout" },
+      { href: "/products", labelKey: "footer.linkProducts" },
+      { href: "/contact", labelKey: "footer.linkContact" },
+    ],
+    legal: [
+      { href: "#", labelKey: "footer.linkPrivacy" },
+      { href: "#", labelKey: "footer.linkTerms" },
+    ],
+  };
+
   return (
-    <footer className="border-t border-border bg-muted/50">
+    <footer className="border-t border-pink-200/60 bg-white/80 backdrop-blur-sm">
       <Container>
         <div className="grid grid-cols-1 gap-8 py-12 md:grid-cols-3">
           <div>
             <Link href="/" className="mb-4 inline-block">
-              <Image
-                src="/logo.svg"
-                alt="Logo"
-                width={150}
-                height={100}
-                className="h-[100px] w-[150px] object-contain"
-              />
+              <span className="font-audiowide text-2xl font-bold text-primary">Tea Love</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Trà Việt Nam chất lượng cao, mang đến hương vị đậm đà truyền thống
+              {t("footer.tagline")}
             </p>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Trang</h3>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("footer.pages")}</h3>
             <ul className="space-y-2">
               {footerLinks.pages.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
-                    {link.label}
+                    {t(link.labelKey)}
                   </Link>
                 </li>
               ))}
@@ -54,15 +51,15 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Pháp lý</h3>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">{t("footer.legal")}</h3>
             <ul className="space-y-2">
               {footerLinks.legal.map((link, idx) => (
                 <li key={`${link.href}-${idx}`}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
-                    {link.label}
+                    {t(link.labelKey)}
                   </Link>
                 </li>
               ))}
@@ -70,9 +67,9 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-border py-6 text-center">
+        <div className="border-t border-pink-200/40 py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © {currentYear} Viettea. Tất cả quyền được bảo lưu.
+            {t("footer.copyright", { year: String(currentYear) })}
           </p>
         </div>
       </Container>

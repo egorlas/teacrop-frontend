@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X, LogIn, User, LogOut, UserCircle, Settings, Package, Store } from "lucide-react";
@@ -9,7 +8,9 @@ import { cn } from "@/lib/utils";
 import { Container } from "@/components/Container";
 import { AudioToggle } from "@/components/AudioToggle";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/lib/i18n";
 import { useAuthStore } from "@/store/auth";
 import { CartModal } from "@/components/cart/CartModal";
 import {
@@ -26,6 +27,7 @@ const navLinks: Array<{ href: string; label: string; icon?: any }> = [];
 
 export function Navbar() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated, user, checkAuth, isStaff, role, hasHydrated } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
@@ -61,18 +63,11 @@ export function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <nav className="sticky top-0 z-50 border-b border-pink-200/50 bg-gradient-to-r from-pink-300 to-rose-300 text-white shadow-sm">
       <Container>
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center" onClick={closeMenu} aria-label="Về trang chủ">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={150}
-              height={100}
-              className="h-[100px] w-[150px] object-contain"
-              priority
-            />
+          <Link href="/" className="flex items-center gap-2" onClick={closeMenu} aria-label={t("nav.home")}>
+            <span className="font-audiowide text-2xl font-bold text-white">Tea Love</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -83,7 +78,7 @@ export function Navbar() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex items-center gap-2 text-sm font-medium text-white/90 transition-colors hover:text-white"
                   >
                     {Icon && <Icon className="h-4 w-4" />}
                     {link.label}
@@ -94,22 +89,22 @@ export function Navbar() {
           </ul>
 
           {/* Auth Buttons, Theme Toggle, Audio Toggle and Mobile Menu Button */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-white">
             {/* Desktop Login Button */}
             {!isAuthenticated ? (
               <Link href="/login" className="hidden md:block">
-                <Button variant="default" size="sm" className="h-9 gap-2">
+                <Button variant="secondary" size="sm" className="h-9 gap-2 bg-white text-pink-600 hover:bg-white/90 hover:text-pink-700 border-0">
                   <LogIn className="h-4 w-4" />
-                  Đăng nhập
+                  {t("nav.login")}
                 </Button>
               </Link>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-9 gap-2 hidden md:flex">
+                  <Button variant="ghost" size="sm" className="h-9 gap-2 hidden md:flex text-white hover:bg-white/20 hover:text-white">
                     <UserCircle className="h-4 w-4" />
                     <span className="max-w-[120px] truncate">
-                      {user?.username || user?.email || "Tài khoản"}
+                      {user?.username || user?.email || t("nav.account")}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -140,7 +135,7 @@ export function Navbar() {
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/profile" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
-                      <span>Hồ sơ</span>
+                      <span>{t("nav.profile")}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -154,26 +149,26 @@ export function Navbar() {
                         <path d="M1 1h2l.4 2M7 13h10l4-8H5.4" />
                         <path d="M7 13l-1.35-5.41A1 1 0 0 1 6.62 6h14.48" />
                       </svg>
-                      <span>Giỏ hàng</span>
+                      <span>{t("nav.cart")}</span>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/orders" className="flex items-center">
                       <Package className="mr-2 h-4 w-4" />
-                      <span>Lịch sử đơn hàng</span>
+                      <span>{t("nav.orders")}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/products" className="flex items-center">
                       <Store className="mr-2 h-4 w-4" />
-                      <span>Cửa hàng</span>
+                      <span>{t("nav.store")}</span>
                     </Link>
                   </DropdownMenuItem>
                   {isStaff && (
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link href="/staff" className="flex items-center">
                         <Settings className="mr-2 h-4 w-4" />
-                        <span>Khu vực nhân viên</span>
+                        <span>{t("nav.staff")}</span>
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -183,7 +178,7 @@ export function Navbar() {
                     className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Đăng xuất</span>
+                    <span>{t("nav.logout")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -193,18 +188,19 @@ export function Navbar() {
             <div className="hidden md:block">
               <ThemeToggle />
             </div>
+            <LanguageSwitcher />
             <AudioToggle />
             <button
               type="button"
               onClick={toggleMenu}
               className="md:hidden"
-              aria-label={isOpen ? "Đóng menu" : "Mở menu"}
+              aria-label={isOpen ? t("nav.menuClose") : t("nav.menuOpen")}
               aria-expanded={isOpen}
             >
               {isOpen ? (
-                <X className="h-6 w-6 text-foreground" aria-hidden="true" />
+                <X className="h-6 w-6 text-white" aria-hidden="true" />
               ) : (
-                <Menu className="h-6 w-6 text-foreground" aria-hidden="true" />
+                <Menu className="h-6 w-6 text-white" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -217,11 +213,14 @@ export function Navbar() {
             isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0",
           )}
         >
-          <div className="flex flex-col gap-4 pb-4 pt-4">
+          <div className="flex flex-col gap-4 border-t border-pink-200/50 bg-white/95 px-4 pb-4 pt-4 text-foreground backdrop-blur md:bg-pink-50/95">
             {/* Mobile Theme Toggle */}
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm font-medium text-foreground">Giao diện</span>
-              <ThemeToggle />
+              <span className="text-sm font-medium text-foreground">{t("nav.theme")}</span>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <LanguageSwitcher />
+              </div>
             </div>
             <ul className="flex flex-col gap-4">
               {navLinks.map((link) => {
@@ -246,14 +245,14 @@ export function Navbar() {
                 <Link href="/login" onClick={closeMenu} className="w-full">
                   <Button variant="default" className="w-full gap-2">
                     <LogIn className="h-4 w-4" />
-                    Đăng nhập
+                    {t("nav.login")}
                   </Button>
                 </Link>
               ) : (
                 <Link href="/profile" onClick={closeMenu} className="w-full">
                   <Button variant="outline" className="w-full gap-2">
                     <User className="h-4 w-4" />
-                    {user?.username || user?.email || "Tài khoản"}
+                    {user?.username || user?.email || t("nav.account")}
                   </Button>
                 </Link>
               )}
