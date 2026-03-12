@@ -17,7 +17,7 @@ type BuildMetadataOptions = {
 export function buildMetadata({
   title,
   description,
-  image = "/og-image.jpg",
+  image = "https://res.cloudinary.com/dzepc9mrh/image/upload/v1773301630/Tea_Love_fsaoqq.png",
   url = "https://viettea.com",
   manifest,
   themeColor,
