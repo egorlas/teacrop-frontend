@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { TopBar } from "@/components/home/TopBar";
 import { Header } from "@/components/home/Header";
 import { NavMenu } from "@/components/home/NavMenu";
@@ -17,7 +18,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
       <FloatingHearts />
       <TopBar />
-      <Header />
+      {/* useSearchParams bên trong SearchBar (Header) cần được bọc Suspense */}
+      <Suspense fallback={null}>
+        <Header />
+      </Suspense>
       <NavMenu />
       <main>
         <HeroBanner />
