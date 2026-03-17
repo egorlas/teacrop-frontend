@@ -8,7 +8,7 @@ export function CategoryGrid() {
   return (
     <section className="border-b border-gray-200 bg-white py-6">
       <Container>
-        <h2 className="mb-4 text-lg font-semibold text-gray-800">
+        <h2 className="mb-8 text-[2.25rem] font-semibold text-gray-800 text-center">
           Danh mục
         </h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">

@@ -48,9 +48,57 @@ export const categories = [
 ];
 
 export const heroSlides = [
-  { id: "1", image: "https://placehold.co/840x320/2d6a4f/fff?text=Tr%C3%A0+Xanh+Tea+Love", alt: "Trà xanh Tea Love" },
-  { id: "2", image: "https://placehold.co/840x320/5d4037/fff?text=%E1%BA%A4m+Tr%C3%A0+Cao+C%E1%BA%A5p", alt: "Ấm trà cao cấp" },
-  { id: "3", image: "https://placehold.co/840x320/6a1b9a/fff?text=Qu%C3%A0+T%E1%BA%B7ng+Tr%C3%A0", alt: "Quà tặng trà" },
+  {
+    id: "1",
+    badgePrefix: "Matcha tháng này",
+    badgeLabel: "Ưu đãi đến 20%",
+    eyebrow: "Tea Love Collection",
+    headline: "Hương vị trà Việt",
+    highlight: "bùng nổ cảm hứng",
+    description:
+      "Thưởng thức những dòng trà đặc sắc của Tea Love – từ trà xanh, ô long đến trà hoa và thảo mộc, cho khoảnh khắc thư giãn trọn vẹn mỗi ngày.",
+    primaryLabel: "Mua trà ngay",
+    primaryHref: "/products",
+    secondaryLabel: "Khám phá Tea Love",
+    secondaryHref: "/about",
+    image:
+      "https://placehold.co/840x320/ff8fab/ffffff?text=Tea+Love+Drinks",
+    alt: "Bộ sưu tập đồ uống Tea Love",
+  },
+  {
+    id: "2",
+    badgePrefix: "Ưu đãi quà tặng",
+    badgeLabel: "Combo tiết kiệm",
+    eyebrow: "Gift for tea lovers",
+    headline: "Hộp quà trà tinh tế",
+    highlight: "dành tặng người thương",
+    description:
+      "Chọn những set quà trà được thiết kế trọn bộ, tinh tế từ hộp đến hương vị, phù hợp cho mọi dịp đặc biệt.",
+    primaryLabel: "Xem quà tặng",
+    primaryHref: "/products?category=gift",
+    secondaryLabel: "Tư vấn chọn quà",
+    secondaryHref: "/contact",
+    image:
+      "https://placehold.co/840x320/f9a8d4/ffffff?text=Tea+Gift+Sets",
+    alt: "Hộp quà tặng trà Tea Love",
+  },
+  {
+    id: "3",
+    badgePrefix: "Thưởng trà mỗi ngày",
+    badgeLabel: "Đăng ký định kỳ",
+    eyebrow: "Tea subscription",
+    headline: "Trà giao tận nơi",
+    highlight: "theo gu riêng của bạn",
+    description:
+      "Đăng ký gói trà định kỳ để mỗi tháng nhận bộ sưu tập hương vị mới, phù hợp khẩu vị và thói quen thưởng trà của bạn.",
+    primaryLabel: "Khám phá gói trà",
+    primaryHref: "/products?tag=subscription",
+    secondaryLabel: "Tìm hiểu thêm",
+    secondaryHref: "/about",
+    image:
+      "https://placehold.co/840x320/b185db/ffffff?text=Tea+Subscription",
+    alt: "Gói trà giao tận nơi Tea Love",
+  },
 ];
 
 export const promoBanners = [

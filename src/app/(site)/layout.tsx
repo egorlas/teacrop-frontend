@@ -3,10 +3,12 @@
 import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { HomeFooter } from "@/components/home/HomeFooter";
 import { FloatingButtons } from "@/components/common/FloatingButtons";
 import { TopBar } from "@/components/home/TopBar";
 import { Header } from "@/components/home/Header";
 import { NavMenu } from "@/components/home/NavMenu";
+import { AuthCtaSection } from "@/components/home/AuthCtaSection";
 
 export default function SiteLayout({
   children,
@@ -16,6 +18,7 @@ export default function SiteLayout({
   const pathname = usePathname();
   const isHomePage = pathname === "/" || pathname === "/vi" || pathname === "/en";
   const isProductsPage = pathname?.startsWith("/products");
+  const hideAuthBar = pathname?.startsWith("/orders") || pathname?.startsWith("/profile");
 
   if (isHomePage) {
     return <>{children}</>;
@@ -25,10 +28,11 @@ export default function SiteLayout({
     return (
       <div className="flex min-h-screen flex-col bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
         <TopBar />
+        {!hideAuthBar && <AuthCtaSection />}
         <Header />
         <NavMenu />
         <main className="flex-1">{children}</main>
-        <Footer />
+        <HomeFooter />
         <FloatingButtons />
       </div>
     );
@@ -36,6 +40,7 @@ export default function SiteLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
+      {!hideAuthBar && <AuthCtaSection />}
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

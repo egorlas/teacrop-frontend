@@ -38,7 +38,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
     <Link
       href={productHref}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:border-primary hover:shadow-md",
+        "relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md",
         className,
       )}
     >
@@ -47,27 +47,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
           src={product.image ?? ""}
           alt={product.name}
           fill
-          className="object-cover transition-transform group-hover:scale-105"
+          className="object-cover transition-transform duration-200 hover:scale-[1.02]"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           loading="lazy"
         />
       </div>
-
-      {/* Hover zoom overlay - detached from card (fixed on viewport) */}
-      <div className="pointer-events-none fixed inset-0 z-40 hidden items-center justify-center bg-black/10 backdrop-blur-[1px] group-hover:flex">
-        <div className="relative aspect-square w-[150%] max-w-[420px] sm:max-w-[480px]">
-          <ProductImage
-            src={product.image ?? ""}
-            alt={product.name}
-            fill
-            className="object-contain"
-            sizes="320px"
-            loading="lazy"
-          />
-        </div>
-      </div>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="mb-2 text-lg font-semibold text-card-foreground group-hover:text-primary line-clamp-2">
+        <h3 className="mb-2 text-lg font-semibold text-card-foreground line-clamp-2 transition-colors hover:text-primary">
           {product.name}
         </h3>
         {product.note && (

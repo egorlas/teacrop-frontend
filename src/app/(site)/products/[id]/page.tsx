@@ -3,6 +3,7 @@ import { buildMetadata } from "@/lib/seo";
 import { Container } from "@/components/Container";
 import { ProductDetails } from "@/components/products/ProductDetails";
 import { ProductDescription } from "@/components/products/ProductDescription";
+import { ProductInfo } from "@/components/products/ProductInfo";
 import { ProductReviews } from "@/components/products/ProductReviews";
 import { ProductComments } from "@/components/products/ProductComments";
 import { RelatedProducts } from "@/components/products/RelatedProducts";
@@ -51,6 +52,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         {/* Mô tả sản phẩm */}
         <ProductDescription description={product.description} />
+
+        {/* Thông tin sản phẩm */}
+        <ProductInfo product={product} />
 
         {/* Đánh giá */}
         <ProductReviews reviews={product.reviews} />

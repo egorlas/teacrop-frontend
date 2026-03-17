@@ -62,69 +62,10 @@ export function ProductDetails({ product }: ProductDetailsProps) {
   const { addItem } = useCartStore();
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  
-  // Build specifications array from new fields
-  const specifications: Array<{ label: string; value: string }> = [];
-  
-  // Add existing specifications
-  if (product.specifications) {
-    specifications.push(...product.specifications);
-  }
-  
-  // Add new enum fields
-  if (product.productType) {
-    const label = getProductTypeLabel(product.productType);
-    if (label) {
-      specifications.push({ label: "Phân loại", value: label });
-    }
-  }
-  
-  if (product.teaType) {
-    const label = getTeaTypeLabel(product.teaType);
-    if (label) {
-      specifications.push({ label: "Loại trà", value: label });
-    }
-  }
-  
-  if (product.ingredient) {
-    const label = getIngredientLabel(product.ingredient);
-    if (label) {
-      specifications.push({ label: "Thành phần", value: label });
-    }
-  }
-  
-  if (product.finished_goods) {
-    const label = getFinishedGoodsLabel(product.finished_goods);
-    if (label) {
-      specifications.push({ label: "Thành phẩm", value: label });
-    }
-  }
-  
-  // Add attributes JSON fields
-  if (product.attributes) {
-    if (product.attributes.brand) {
-      specifications.push({ label: "Thương hiệu", value: product.attributes.brand });
-    }
-    if (product.attributes.origin) {
-      specifications.push({ label: "Xuất xứ", value: product.attributes.origin });
-    }
-    if (product.attributes.weight) {
-      specifications.push({ label: "Trọng lượng", value: product.attributes.weight });
-    }
-    if (product.attributes.package) {
-      specifications.push({ label: "Đóng gói", value: product.attributes.package });
-    }
-    if (product.attributes.expiry) {
-      specifications.push({ label: "Hạn sử dụng", value: product.attributes.expiry });
-    }
-  }
-  
-  // Add SKU if available
-  if (product.sku) {
-    specifications.push({ label: "SKU", value: product.sku });
-  }
-  
-  const hasAnySpecs = specifications.length > 0;
+  const [qty, setQty] = useState(1);
+  const [selectedWeight, setSelectedWeight] = useState<string | null>(
+    product.attributes?.weight ?? null,
+  );
   
   const handleAddToCart = () => {
     // Check if product is out of stock
@@ -141,7 +82,7 @@ export function ProductDetails({ product }: ProductDetailsProps) {
         title: product.name,
         price: product.price,
         image: product.image,
-        qty: 1,
+        qty,
       });
       
       toast.success("Đã thêm vào giỏ hàng", {
@@ -161,114 +102,187 @@ export function ProductDetails({ product }: ProductDetailsProps) {
   };
   
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      {/* Hình ảnh sản phẩm */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted">
-        <ProductImage
-          src={product.image || ''}
-          alt={product.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 50vw"
-          priority
-        />
-      </div>
-
-      {/* Thông tin sản phẩm */}
-      <div className="flex flex-col">
-        <h1 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-          {product.name}
-        </h1>
-
-        {product.note && (
-          <p className="mb-6 text-lg text-muted-foreground">{product.note}</p>
-        )}
-
-        {/* Đánh giá */}
-        {product.averageRating !== undefined && product.averageRating > 0 && (
-          <div className="mb-6 flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn(
-                    "h-5 w-5",
-                    i < Math.round(product.averageRating!)
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-muted",
-                  )}
-                  aria-hidden="true"
+    <div className="rounded-lg border border-border bg-card p-4 shadow-sm lg:p-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:gap-8">
+        {/* Hình ảnh sản phẩm + thumbnails (kiểu Shopee) */}
+        <div className="space-y-3">
+          <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted">
+            <ProductImage
+              src={product.image || ""}
+              alt={product.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              priority
+            />
+          </div>
+          <div className="flex gap-2">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "relative h-16 w-16 overflow-hidden rounded-md border",
+                  idx === 0 ? "border-primary" : "border-border",
+                )}
+              >
+                <ProductImage
+                  src={product.image || ""}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes="64px"
                 />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Thông tin sản phẩm (layout giống Shopee) */}
+        <div className="flex flex-col">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-sm bg-rose-500 px-1.5 py-0.5 font-semibold uppercase tracking-wide text-white">
+              yêu thích
+            </span>
+            <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
+              chính hãng Tea Love
+            </span>
+          </div>
+
+          <h1 className="mb-3 text-xl font-semibold leading-snug text-foreground sm:text-2xl">
+            {product.name}
+          </h1>
+
+          {/* Đánh giá + đã bán */}
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            {product.averageRating !== undefined && product.averageRating > 0 && (
+              <>
+                <div className="flex items-center gap-1 border-r border-border pr-3">
+                  <span className="text-sm font-semibold text-rose-500">
+                    {product.averageRating.toFixed(1)}
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          i < Math.round(product.averageRating!)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-slate-300",
+                        )}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                  {product.reviewCount && (
+                    <span className="ml-1 text-[11px]">
+                      ({product.reviewCount} đánh giá)
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+            <span className="text-[11px]">
+              Đã bán{" "}
+              <span className="font-medium">
+                {product.reviewCount ?? "100+"}
+              </span>
+            </span>
+          </div>
+
+          {/* Giá (ô nền màu giống Shopee) */}
+          <div className="mb-5 rounded-md bg-[#fff5f5] px-4 py-3">
+            <p className="text-2xl font-bold text-rose-600 sm:text-3xl">
+              {formatCurrencyVND(product.price)}
+            </p>
+          </div>
+
+          {/* Tuỳ chọn trọng lượng / phân loại đơn giản */}
+          <div className="mb-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Khối lượng
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {["50g", "100g", "200g"].map((weight) => (
+                <button
+                  key={weight}
+                  type="button"
+                  onClick={() => setSelectedWeight(weight)}
+                  className={cn(
+                    "rounded border px-3 py-1.5 text-xs",
+                    selectedWeight === weight
+                      ? "border-rose-500 bg-rose-50 text-rose-600"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-rose-300",
+                  )}
+                >
+                  {weight}
+                </button>
               ))}
             </div>
-            <span className="text-sm font-medium text-foreground">
-              {product.averageRating.toFixed(1)}
-            </span>
-            {product.reviewCount && (
-              <span className="text-sm text-muted-foreground">
-                ({product.reviewCount} đánh giá)
-              </span>
-            )}
           </div>
-        )}
 
-        {/* Giá */}
-        <div className="mb-6">
-          <p className="text-3xl font-bold text-foreground">
-            {formatCurrencyVND(product.price)}
-          </p>
-        </div>
-
-        {/* Thông số kỹ thuật */}
-        {hasAnySpecs && (
-          <div className="mb-6 rounded-lg border border-border bg-card p-6">
-            <h2 className="mb-4 text-lg font-semibold text-card-foreground">Thông số kỹ thuật</h2>
-            <dl className="space-y-3">
-              {specifications.map((spec, index) => (
-                <div key={index} className="flex gap-4 border-b border-border pb-3 last:border-0">
-                  <dt className="min-w-[120px] text-sm font-medium text-muted-foreground sm:min-w-[150px]">
-                    {spec.label}
-                  </dt>
-                  <dd className="flex-1 text-sm text-card-foreground">{spec.value}</dd>
-                </div>
-              ))}
-            </dl>
+          {/* Chọn số lượng */}
+          <div className="mb-4 flex items-center gap-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Số lượng
+            </p>
+            <div className="inline-flex items-center rounded border border-slate-200 bg-white">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="px-3 py-1 text-base text-slate-600 hover:bg-slate-50"
+              >
+                -
+              </button>
+              <span className="min-w-[32px] text-center text-sm">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => q + 1)}
+                className="px-3 py-1 text-base text-slate-600 hover:bg-slate-50"
+              >
+                +
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Nút thêm vào giỏ hàng */}
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={isAddingToCart || (product.inventory !== undefined && product.inventory === 0)}
-          className={cn(
-            "mt-auto w-full rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          )}
-        >
-          {isAddingToCart ? (
-            <>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              <span>Đang thêm...</span>
-            </>
-          ) : product.inventory !== undefined && product.inventory === 0 ? (
-            <>
-              <span>Hết hàng</span>
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="h-4 w-4" />
-              <span>Thêm vào giỏ hàng</span>
-            </>
-          )}
-        </button>
+          {/* Nút thêm vào giỏ hàng */}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={
+                isAddingToCart ||
+                (product.inventory !== undefined && product.inventory === 0)
+              }
+              className={cn(
+                "inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-rose-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60",
+              )}
+            >
+              {isAddingToCart ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Đang thêm...</span>
+                </>
+              ) : product.inventory !== undefined &&
+                product.inventory === 0 ? (
+                <span>Hết hàng</span>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>Thêm vào giỏ</span>
+                </>
+              )}
+            </button>
+          </div>
 
-        {/* Thông tin bảo hành/bảo đảm */}
-        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
-          <span>Miễn phí vận chuyển cho đơn hàng trên 500.000đ</span>
+          {/* Thông tin bảo hành/bảo đảm */}
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+            <span>Miễn phí vận chuyển cho đơn hàng trên 500.000đ</span>
+          </div>
         </div>
       </div>
-      
+
       {/* Cart Modal */}
       <CartModal open={cartModalOpen} onOpenChange={setCartModalOpen} />
     </div>

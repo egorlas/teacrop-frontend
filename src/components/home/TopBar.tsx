@@ -1,104 +1,40 @@
 "use client";
 
-import Link from "next/link";
-import {
-  Store,
-  Smartphone,
-  Facebook,
-  Instagram,
-  Bell,
-  HelpCircle,
-  Globe,
-  LogIn,
-  UserPlus,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Bell } from "lucide-react";
+
+const MESSAGES = [
+  "Miễn phí giao hàng toàn quốc cho đơn từ 499k.",
+  "Giảm thêm 15% cho combo quà tặng Tea Love.",
+  "Thành viên Tea Love Club tích điểm đổi quà hấp dẫn.",
+];
 
 export function TopBar() {
   return (
-    <div className="bg-gradient-to-r from-pink-300 to-rose-300 text-white">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-xs sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-4">
-          <Link
-            href="#"
-            className="flex items-center gap-1 hover:opacity-90"
-            aria-label="Kênh đối tác"
-          >
-            <Store className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Kênh người bán</span>
-          </Link>
-          <span className="hidden text-white/70 sm:inline">|</span>
-          <Link href="#" className="hover:opacity-90">
-            Trở thành người bán
-          </Link>
-          <span className="hidden text-white/70 sm:inline">|</span>
-          <Link href="#" className="flex items-center gap-1 hover:opacity-90">
-            <Smartphone className="h-3.5 w-3.5" />
-            Tải ứng dụng
-          </Link>
-          <span className="hidden text-white/70 sm:inline">|</span>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">Kết nối</span>
-            <Link href="#" className="hover:opacity-90" aria-label="Facebook">
-              <Facebook className="h-3.5 w-3.5" />
-            </Link>
-            <Link href="#" className="hover:opacity-90" aria-label="Instagram">
-              <Instagram className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="#"
-            className="flex items-center gap-1 hover:opacity-90"
-            aria-label="Notifications"
-          >
-            <Bell className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Thông báo</span>
-          </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-1 hover:opacity-90"
-            aria-label="Help"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Hỗ trợ</span>
-          </Link>
-          <Select defaultValue="vi">
-            <SelectTrigger className="h-6 w-auto border-0 bg-transparent px-1.5 py-0 text-white shadow-none focus:ring-0 [&>svg]:text-white">
-              <Globe className="mr-1 h-3.5 w-3.5" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vi">Tiếng Việt</SelectItem>
-              <SelectItem value="en">English</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1">
-            <Link
-              href="/login"
-              className="flex items-center gap-1 hover:opacity-90"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              Đăng nhập
-            </Link>
-            <span className="text-white/70">/</span>
-            <Link
-              href="/signup"
-              className="flex items-center gap-1 hover:opacity-90"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Đăng ký
-            </Link>
+    <div className="bg-[#00b4a5] text-emerald-50">
+      <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-2 text-[0.9rem] sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <Bell className="h-4 w-4 shrink-0" />
+          <div className="relative w-[260px] sm:w-[360px] md:w-[960px] overflow-hidden">
+            <div className="flex min-w-full gap-8 animate-[topbar-ticker_18s_linear_infinite] whitespace-nowrap">
+              {MESSAGES.concat(MESSAGES).map((msg, i) => (
+                <span key={`${msg}-${i}`} className="shrink-0">
+                  {msg}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @keyframes topbar-ticker {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+      `}</style>
     </div>
   );
 }

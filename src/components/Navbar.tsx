@@ -7,7 +7,6 @@ import { Menu, X, LogIn, User, LogOut, UserCircle, Settings, Package, Store } fr
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/Container";
 import { AudioToggle } from "@/components/AudioToggle";
-import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n";
@@ -184,10 +183,6 @@ export function Navbar() {
               </DropdownMenu>
             )}
 
-            {/* Desktop Theme Toggle */}
-            <div className="hidden md:block">
-              <ThemeToggle />
-            </div>
             <LanguageSwitcher />
             <AudioToggle />
             <button
@@ -214,11 +209,9 @@ export function Navbar() {
           )}
         >
           <div className="flex flex-col gap-4 border-t border-pink-200/50 bg-white/95 px-4 pb-4 pt-4 text-foreground backdrop-blur md:bg-pink-50/95">
-            {/* Mobile Theme Toggle */}
             <div className="flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm font-medium text-foreground">{t("nav.theme")}</span>
+              <span className="text-sm font-medium text-foreground">{t("nav.language")}</span>
               <div className="flex items-center gap-2">
-                <ThemeToggle />
                 <LanguageSwitcher />
               </div>
             </div>

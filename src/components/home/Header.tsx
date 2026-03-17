@@ -18,14 +18,6 @@ export function Header() {
             <span className="font-audiowide text-[48px] font-bold leading-none text-white">Tea Love</span>
           </Link>
           <SearchBar />
-          <Link
-            href="/products"
-            className="flex shrink-0 items-center justify-center gap-1 rounded-sm bg-white/20 px-4 py-2 text-white transition-colors hover:bg-white/30"
-            aria-label="Cart"
-          >
-            <ShoppingCart className="h-6 w-6" />
-            <span className="text-sm font-medium">Giỏ hàng</span>
-          </Link>
         </div>
       </Container>
     </header>

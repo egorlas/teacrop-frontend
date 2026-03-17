@@ -24,7 +24,12 @@ export function BrandSlide() {
               >
                 <div className="relative h-14 w-28">
                   <Image
-                    src={brand.logo}
+                    src={
+                      brand.logo ||
+                      `https://placehold.co/120x60/f5f5f5/2d6a4f?text=${encodeURIComponent(
+                        brand.name,
+                      )}`
+                    }
                     alt={brand.name}
                     fill
                     className="object-contain"

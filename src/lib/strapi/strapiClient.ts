@@ -26,7 +26,6 @@ export async function strapiClient<T>(
   options: StrapiRequestOptions = {}
 ): Promise<T> {
   const { token, requiresAuth = false, headers, ...fetchOptions } = options;
-
   // Build full URL
   const url = endpoint.startsWith("http")
     ? endpoint
