@@ -51,7 +51,7 @@ export function FeaturedProducts() {
                 <div className="absolute inset-0 rounded-full bg-emerald-50" />
                 <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
                   <Image
-                    src={product.image}
+                    src={product.image || "/placeholder-product.jpg"}
                     alt={product.name}
                     fill
                     className="object-cover"

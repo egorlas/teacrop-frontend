@@ -27,7 +27,6 @@ export const metadata: Metadata = buildMetadata({
     "Chúng tôi yêu trà và chúng tôi bán tất cả những gì các bạn biết về trà - với chất lượng tương xứng với sự tin tưởng của các bạn",
   image: "https://res.cloudinary.com/dzepc9mrh/image/upload/v1773301630/Tea_Love_fsaoqq.png",
   manifest: "/manifest.webmanifest",
-  themeColor: "#f9a8d4",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
