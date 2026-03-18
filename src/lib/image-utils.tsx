@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import type { ImageProps } from "next/image";
 
@@ -31,6 +31,14 @@ export function ProductImage({
   );
   const [hasError, setHasError] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
+
+  // Cập nhật lại src nội bộ khi prop src thay đổi
+  useEffect(() => {
+    const nextSrc = typeof src === 'string' ? src : (src as any)?.src || '';
+    setImgSrc(nextSrc);
+    setHasError(false);
+    setShowPlaceholder(false);
+  }, [src]);
 
   const handleError = () => {
     if (!hasError && fallbackUrl) {

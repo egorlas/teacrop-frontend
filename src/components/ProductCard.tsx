@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { Product } from "@/types/product";
-import { formatCurrencyVND } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { ProductImage } from "@/lib/image-utils";
 
@@ -10,6 +9,25 @@ type ProductCardProps = {
   product: Product;
   className?: string;
 };
+
+function formatCurrencyVND(value: number): string {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatPriceRange(priceRange?: string): string | null {
+  if (!priceRange) return null;
+  const parts = priceRange.split("-").map((s) => s.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+  const low = Number(parts[0]);
+  const high = Number(parts[1]);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  if (low === high) return formatCurrencyVND(low);
+  return `${formatCurrencyVND(low)} - ${formatCurrencyVND(high)}`;
+}
 
 /** Sinh số lượt bán giả (ổn định theo product.id) */
 function fakeSoldCount(id: number | string): string {
@@ -33,6 +51,7 @@ function fakeSoldCount(id: number | string): string {
 export function ProductCard({ product, className }: ProductCardProps) {
   const productHref = product.slug ? `/products/${product.slug}` : `/products/${product.id}`;
   const soldText = fakeSoldCount(product.id);
+  const priceRangeText = formatPriceRange(product.price_range);
 
   return (
     <Link
@@ -56,13 +75,20 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <h3 className="mb-2 text-lg font-semibold text-card-foreground line-clamp-2 transition-colors hover:text-primary">
           {product.name}
         </h3>
+        {priceRangeText && (
+          <p className="mb-2 text-sm font-semibold text-rose-600">
+            {priceRangeText}
+          </p>
+        )}
         {product.note && (
           <p className="mb-3 line-clamp-2 flex-1 text-sm text-muted-foreground">{product.note}</p>
         )}
         <div className="mt-auto space-y-1">
-          <span className="text-lg font-bold text-primary">
-            {formatCurrencyVND(product.price)}
-          </span>
+          {product.attributes?.origin && (
+            <p className="text-xs text-muted-foreground">
+              Xuất xứ: {product.attributes.origin}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">Đã bán {soldText}</p>
         </div>
       </div>

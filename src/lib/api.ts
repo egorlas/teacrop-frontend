@@ -196,16 +196,42 @@ function blocksToString(blocks: any): string | undefined {
 function transformProduct(strapiProduct: StrapiProduct): Product {
   // Check if structure is flat (Strapi v5) or nested (Strapi v4)
   // In Strapi v5, fields are directly on the object, not nested in attributes
-  const isFlat = !strapiProduct.attributes || 'title' in strapiProduct;
+  const isFlat = !strapiProduct.attributes || "title" in strapiProduct;
 
   // Get data from nested structure or flat structure
   const title = isFlat ? strapiProduct.title : strapiProduct.attributes?.title;
   const slug = isFlat ? strapiProduct.slug : strapiProduct.attributes?.slug;
-  const descriptionRaw = isFlat ? strapiProduct.description : strapiProduct.attributes?.description;
+
+  // short_description: mô tả ngắn (plain text hoặc blocks)
+  const shortDescRaw = isFlat
+    ? (strapiProduct as any).short_description
+    : (strapiProduct.attributes as any)?.short_description;
+
+  // description: mô tả chi tiết (HTML từ Lexical, hoặc blocks cũ)
+  const longDescRaw = isFlat
+    ? strapiProduct.description
+    : strapiProduct.attributes?.description;
+
+  const normalizeDesc = (value: any): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === "string") return value;
+    return blocksToString(value);
+  };
+
+  const shortDescription = normalizeDesc(shortDescRaw);
+  const description = normalizeDesc(longDescRaw);
+
   const price = isFlat ? strapiProduct.price : strapiProduct.attributes?.price;
+  const priceRange = isFlat
+    ? (strapiProduct as any).price_range
+    : (strapiProduct.attributes as any)?.price_range;
   const sku = isFlat ? strapiProduct.sku : strapiProduct.attributes?.sku;
-  const inventory = isFlat ? strapiProduct.inventory : strapiProduct.attributes?.inventory;
-  const productType = isFlat ? strapiProduct.productType : strapiProduct.attributes?.productType;
+  const inventory = isFlat
+    ? strapiProduct.inventory
+    : strapiProduct.attributes?.inventory;
+  const productType = isFlat
+    ? strapiProduct.productType
+    : strapiProduct.attributes?.productType;
   const images = isFlat ? strapiProduct.images : strapiProduct.attributes?.images;
   // New enum fields for filtering
   const teaType = isFlat
@@ -224,9 +250,6 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
   const jsonAttributes = isFlat
     ? (strapiProduct as any).attributes
     : strapiProduct.attributes?.attributes;
-
-  // Convert blocks format description to string
-  const description = blocksToString(descriptionRaw);
 
   // Safe access to the first image's formats using Strapi's nested data structure
   // Strapi image structure differs between v4 and v5; handle both cases for safety
@@ -247,7 +270,7 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
       imgObj?.formats?.small?.url ||
       imgObj?.url ||
       FALLBACK_PRODUCT_IMAGE;
-  } else if (images && typeof images === 'object' && ('url' in images || 'formats' in images)) {
+  } else if (images && typeof images === "object" && ("url" in images || "formats" in images)) {
     // v5+ flat: images is a single object or already the actual image obj
     thumbnailUrl =
       (images as any).formats?.large?.url ||
@@ -258,16 +281,75 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
     // Fallback if images field is undefined or in unexpected form
     thumbnailUrl = FALLBACK_PRODUCT_IMAGE;
   }
-  // Build image URL with fallback
- 
-  console.log('images', images);
+  // Map product variants (product_variants) nếu có
+  const rawVariants = isFlat
+    ? (strapiProduct as any).product_variants
+    : (strapiProduct.attributes as any)?.product_variants;
+
+  const variants =
+    Array.isArray(rawVariants) &&
+    rawVariants.map((v: any) => {
+      const src = v.attributes || v;
+      // Thumbnail cho biến thể (nếu backend populate)
+      let variantThumb: string | undefined;
+      const thumb = src?.thumbnail;
+      if (thumb) {
+        if (typeof thumb === "object" && thumb.url) {
+          variantThumb = thumb.url.startsWith("http")
+            ? thumb.url
+            : `${API_URL}${thumb.url}`;
+        } else if (
+          Array.isArray(thumb) &&
+          thumb.length > 0 &&
+          (thumb[0] as any)?.url
+        ) {
+          const t = (thumb[0] as any).url as string;
+          variantThumb = t.startsWith("http") ? t : `${API_URL}${t}`;
+        } else if (
+          thumb.data &&
+          Array.isArray(thumb.data) &&
+          thumb.data[0]?.attributes?.url
+        ) {
+          const t = thumb.data[0].attributes.url as string;
+          variantThumb = t.startsWith("http") ? t : `${API_URL}${t}`;
+        }
+      }
+      return {
+        id: v.id,
+        name_variant: src?.name_variant || "",
+        SKU: src?.SKU || undefined,
+        default_price:
+          src?.default_price !== undefined && src?.default_price !== null
+            ? Number(src.default_price)
+            : null,
+        sale_price:
+          src?.sale_price !== undefined && src?.sale_price !== null
+            ? Number(src.sale_price)
+            : null,
+        inventory:
+          src?.inventory !== undefined && src?.inventory !== null
+            ? Number(src.inventory)
+            : null,
+        weight:
+          src?.weight !== undefined && src?.weight !== null
+            ? Number(src.weight)
+            : null,
+        package: (src?.package as "bag" | "box" | "" | undefined) || "",
+        thumbnail: variantThumb,
+      };
+    });
+
   return {
     id: String(strapiProduct.id),
     name: title || '',
     slug: slug || undefined,
-    description: description,
-    note: description, // Use same description for note
+    // description: mô tả chi tiết (HTML)
+    description,
+    // note: dùng mô tả ngắn (short_description), fallback về description nếu thiếu
+    note: shortDescription || description,
+    // Giá tổng thể không dùng nữa, luôn 0 hoặc chỉ để tương thích
     price: price || 0,
+    price_range: typeof priceRange === "string" ? priceRange : undefined,
     image: thumbnailUrl,
     aliases: jsonAttributes?.aliases || undefined,
     specifications: jsonAttributes?.specifications || undefined,
@@ -277,13 +359,18 @@ function transformProduct(strapiProduct: StrapiProduct): Product {
     teaType: teaType || undefined,
     ingredient: ingredient || undefined,
     finished_goods: finishedGoods || undefined,
-    attributes: jsonAttributes ? {
-      brand: jsonAttributes.brand || undefined,
-      expiry: jsonAttributes.expiry || undefined,
-      origin: jsonAttributes.origin || undefined,
-      weight: jsonAttributes.weight || undefined,
-      package: jsonAttributes.package || undefined,
-    } : undefined,
+    attributes: jsonAttributes
+      ? {
+          brand: jsonAttributes.brand || undefined,
+          expiry: jsonAttributes.expiry || undefined,
+          origin: jsonAttributes.origin || undefined,
+          weight: jsonAttributes.weight || undefined,
+          package: jsonAttributes.package || undefined,
+        }
+      : undefined,
+    variants: Array.isArray(variants)
+      ? (variants as Product["variants"])
+      : undefined,
   };
 }
 
@@ -412,17 +499,20 @@ export async function getProducts(
 }
 
 /**
- * Fetch a single product by ID from Strapi
+ * PUBLIC: Fetch một product (kèm biến thể) dùng trên site (/products/[slug]).
+ * Sử dụng API custom: POST /api/products/get-product-by-id với body { slug }.
+ * API này ở chế độ public (không cần Authorization).
  */
-export async function getProductById(id: string): Promise<Product | null> {
+export async function getPublicProductBySlug(slug: string): Promise<Product | null> {
   try {
-    // Products API is public, no authentication needed
-    // Fetch product by slug instead of ID
-    const response = await fetch(`${API_URL}/api/products?filters[slug][$eq]=${encodeURIComponent(id)}&populate=*`, {
-      method: 'GET',
+    const url = `${API_URL}/api/get-public-product`;
+    const response = await fetch(url, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
+      // Body truyền slug, backend sẽ trả về product + product_variants
+      body: JSON.stringify({ slug }),
     });
 
     if (!response.ok) {
@@ -432,13 +522,38 @@ export async function getProductById(id: string): Promise<Product | null> {
       throw new Error(`Failed to fetch product: ${response.status}`);
     }
 
-    const data: StrapiListResponse<StrapiProduct> = await response.json();
-    if (!data.data || data.data.length === 0) {
+    const data: StrapiResponse<StrapiProduct> | StrapiProduct = await response.json();
+    const raw = (data as any).data || data;
+    if (!raw) {
       return null;
     }
-    return transformProduct(data.data[0]);
+    return transformProduct(raw as StrapiProduct);
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error("Error fetching product:", error);
+    throw error;
+  }
+}
+
+/**
+ * ADMIN: Fetch product (kèm biến thể) dùng trong khu vực staff (/staff/inventory/[id]).
+ * Sử dụng API: GET /api/get-product-by-id/:id với Authorization (strapi auth token).
+ */
+export async function getAdminProductById(id: string): Promise<Product | null> {
+  try {
+    const data = await fetchJson<StrapiResponse<StrapiProduct> | StrapiProduct>(
+      `/api/get-product-by-id/${encodeURIComponent(id)}`,
+      {
+        useAuth: true,
+      },
+    );
+
+    const raw = (data as any).data || data;
+    if (!raw) {
+      return null;
+    }
+    return transformProduct(raw as StrapiProduct);
+  } catch (error) {
+    console.error("Error fetching admin product:", error);
     throw error;
   }
 }

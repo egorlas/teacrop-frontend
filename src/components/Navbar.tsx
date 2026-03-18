@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Menu, X, LogIn, User, LogOut, UserCircle, Settings, Package, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/Container";
@@ -66,7 +67,14 @@ export function Navbar() {
       <Container>
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2" onClick={closeMenu} aria-label={t("nav.home")}>
-            <span className="font-audiowide text-2xl font-bold text-white">Tea Love</span>
+            <Image
+              src="/tealogo.png"
+              alt="Tea Love"
+              width={240}
+              height={64}
+              className="h-9 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

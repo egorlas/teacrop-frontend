@@ -4,7 +4,10 @@ export type Product = {
   id: string; // From backend: id (mapped to string)
   name: string; // From backend: title (renamed to name in transform)
   slug?: string; // From backend: slug
-  price: number; // From backend: price (decimal)
+  // Giá không còn lưu trực tiếp trên product, dùng theo biến thể
+  price: number; // Deprecated: giữ để tương thích, luôn 0 hoặc không dùng
+  // Dải giá theo variants (sale_price): "low-high"
+  price_range?: string;
   image?: string; // From backend: images[0].url (full URL)
   note?: string; // From backend: description (same as description, for short description)
   description?: string; // From backend: description (blocks/richtext)
@@ -26,6 +29,18 @@ export type Product = {
     weight?: string;
     package?: string;
   };
+  // Biến thể sản phẩm (product_variants)
+  variants?: Array<{
+    id: number | string;
+    name_variant: string;
+    SKU?: string;
+    default_price?: number | null;
+    sale_price?: number | null;
+    inventory?: number | null;
+    weight?: number | null;
+    package?: "bag" | "box" | "" | null;
+    thumbnail?: string;
+  }>;
   // Frontend-only fields:
   reviews?: Review[]; // Đánh giá
   comments?: Comment[]; // Bình luận

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { buildMetadata } from "@/lib/seo";
+import Link from "next/link";
 import { Container } from "@/components/Container";
 import { ProductDetails } from "@/components/products/ProductDetails";
 import { ProductDescription } from "@/components/products/ProductDescription";
@@ -7,7 +8,8 @@ import { ProductInfo } from "@/components/products/ProductInfo";
 import { ProductReviews } from "@/components/products/ProductReviews";
 import { ProductComments } from "@/components/products/ProductComments";
 import { RelatedProducts } from "@/components/products/RelatedProducts";
-import { getProductById, getProducts } from "@/lib/api";
+import { getPublicProductBySlug, getProducts } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 type ProductPageProps = {
   params: Promise<{
@@ -17,7 +19,7 @@ type ProductPageProps = {
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = await getProductById(id);
+  const product = await getPublicProductBySlug(id);
   if (!product) {
     return buildMetadata({
       title: "Không tìm thấy sản phẩm",
@@ -33,7 +35,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
-  const product = await getProductById(id);
+  const product = await getPublicProductBySlug(id);
   if (!product) {
     notFound();
   }
@@ -47,8 +49,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <section className="py-16 sm:py-24">
       <Container>
+
         {/* Chi tiết sản phẩm */}
-        <ProductDetails product={product} />
+        <div id="product-details-section">
+          <ProductDetails product={product} />
+        </div>
 
         {/* Mô tả sản phẩm */}
         <ProductDescription description={product.description} />
