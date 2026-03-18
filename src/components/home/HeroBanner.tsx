@@ -21,7 +21,7 @@ export function HeroBanner() {
     <section className="border-b border-gray-200 bg-[#ff6fb5] text-white">
       <div className="bg-[linear-gradient(135deg,#ff6fb5,40%,#ffb347)]">
         <Container>
-          <div className="grid items-center gap-8 py-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:py-14 lg:py-16">
+          <div className="grid items-center gap-8 py-10 md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] md:py-14 lg:py-16">
             <div className="space-y-4 md:space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em]">
                 <span className="rounded-full bg-white/30 px-2 py-0.5 text-[10px]">
@@ -29,18 +29,21 @@ export function HeroBanner() {
                 </span>
                 <span>{heroSlides[currentSlide].badgeLabel}</span>
               </div>
-              <div>
+              {/* Giữ chiều cao ổn định giữa các slide (tránh "nhảy" layout khi text dài/ngắn) */}
+              <div className="min-h-[150px] md:min-h-[180px] lg:min-h-[200px]">
                 <p className="text-sm font-semibold uppercase tracking-[0.35em] text-white/80">
                   {heroSlides[currentSlide].eyebrow}
                 </p>
-                <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.05] tracking-tight md:text-5xl lg:text-[52px]">
-                  {heroSlides[currentSlide].headline}{" "}
-                  <span className="block text-yellow-200">
+                <h1 className="mt-3 w-full max-w-3xl text-4xl font-extrabold leading-[1.05] tracking-tight md:text-5xl lg:text-[52px]">
+                  <span className="block line-clamp-1">
+                    {heroSlides[currentSlide].headline}
+                  </span>
+                  <span className="block line-clamp-1 text-yellow-200">
                     {heroSlides[currentSlide].highlight}
                   </span>
                 </h1>
               </div>
-              <p className="max-w-xl text-sm leading-relaxed text-pink-50/90 md:text-base">
+              <p className="min-h-[56px] w-full max-w-3xl text-[1em] leading-relaxed text-pink-50/90 line-clamp-2 md:min-h-[64px] md:text-[1.05em]">
                 {heroSlides[currentSlide].description}
               </p>
               <div className="flex flex-wrap items-center gap-3">
@@ -59,7 +62,7 @@ export function HeroBanner() {
               </div>
             </div>
             <div className="relative">
-              <div className="relative mx-auto h-64 max-w-md rounded-[32px] bg-white/10 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.45)] backdrop-blur-sm md:h-72 lg:h-80">
+              <div className="relative mx-auto h-72 max-w-lg rounded-[32px] bg-white/10 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.45)] backdrop-blur-sm md:h-80 md:max-w-xl lg:h-96 lg:max-w-2xl">
                 <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-pink-100">
                   {heroSlides.map((slide, index) => (
                     <div
@@ -74,7 +77,7 @@ export function HeroBanner() {
                         alt={slide.alt}
                         fill
                         className="object-cover"
-                        sizes="(max-width: 768px) 90vw, 540px"
+                        sizes="(max-width: 768px) 92vw, (max-width: 1024px) 520px, 640px"
                         unoptimized
                       />
                     </div>

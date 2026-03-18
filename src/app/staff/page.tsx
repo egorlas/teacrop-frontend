@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 interface Order {
   id: number;
@@ -39,12 +40,14 @@ interface Product {
   sku?: string;
   inventory?: number;
   price?: number;
+  product_variants?: Array<{ inventory?: number | null }> | any[];
   // Strapi v4 nested structure
   attributes?: {
     title?: string;
     sku?: string;
     inventory?: number;
     price?: number;
+    product_variants?: Array<{ inventory?: number | null }> | any[];
   };
 }
 
@@ -92,6 +95,7 @@ function transformProduct(product: Product): Product {
     sku: product.attributes?.sku,
     inventory: product.attributes?.inventory,
     price: product.attributes?.price,
+    product_variants: product.attributes?.product_variants,
   };
 }
 
@@ -128,6 +132,7 @@ function getStatusConfig(status: string) {
 
 export default function StaffDashboardPage() {
   const { token } = useAuthStore();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [orderStats, setOrderStats] = useState<OrderStats>({
     total: 0,
@@ -142,7 +147,10 @@ export default function StaffDashboardPage() {
     thisMonth: 0,
     thisYear: 0,
   });
-  const [lowInventoryProducts, setLowInventoryProducts] = useState<Product[]>([]);
+  const [dashboardProducts, setDashboardProducts] = useState<Product[]>([]);
+  const [dashboardProductsPage, setDashboardProductsPage] = useState(1);
+  const [dashboardProductsPageCount, setDashboardProductsPageCount] = useState(1);
+  const [isLoadingDashboardProducts, setIsLoadingDashboardProducts] = useState(false);
   const [transactionStats, setTransactionStats] = useState<{
     totalTransactions: number;
     completed: { count: number; amount: number };
@@ -260,36 +268,56 @@ export default function StaffDashboardPage() {
     }
   }, [token]);
 
-  // Fetch low inventory products (inventory < 100)
-  const fetchLowInventoryProducts = useCallback(async () => {
+  // Fetch products list for dashboard (tồn kho theo variants)
+  const fetchDashboardProducts = useCallback(async (page = 1) => {
     if (!token) return;
 
     try {
+      setIsLoadingDashboardProducts(true);
       const params = new URLSearchParams({
-        "pagination[pageSize]": "100",
-        "sort": "inventory:asc",
-        "filters[inventory][$lt]": "100",
+        "pagination[pageSize]": "5",
+        "pagination[page]": String(page),
+        "sort": "updatedAt:desc",
+      });
+      // Strapi populate syntax (v4/v5 compatible)
+      params.append("populate[0]", "product_variants");
+      params.append("populate[1]", "images");
+
+      const response = await strapiClient<any>(`/api/products?${params.toString()}`, {
+        method: "GET",
+        token,
+        requiresAuth: true,
       });
 
-      const response = await strapiClient<ProductsResponse>(
-        `/api/products?${params.toString()}`,
-        {
-          method: "GET",
-          token,
-          requiresAuth: true,
-        }
-      );
+      const productsRaw = response?.data || [];
+      const list: Product[] = Array.isArray(productsRaw)
+        ? productsRaw.map(transformProduct)
+        : [];
 
-      if (response?.data) {
-        const transformedProducts = response.data.map(transformProduct);
-        // Filter products with inventory < 100 (in case API filter didn't work)
-        const lowInventory = transformedProducts.filter(
-          (p) => (p.inventory ?? 0) < 100
-        );
-        setLowInventoryProducts(lowInventory.slice(0, 10)); // Show top 10
-      }
+      // Tính tổng tồn kho theo biến thể (product_variants)
+      const withTotal = list.map((p) => {
+        const variantsRaw =
+          (p as any).product_variants ||
+          (p as any).attributes?.product_variants ||
+          [];
+        const totalInv = Array.isArray(variantsRaw)
+          ? variantsRaw.reduce(
+              (acc: number, v: any) => acc + (Number(v?.inventory ?? v?.attributes?.inventory ?? 0) || 0),
+              0,
+            )
+          : 0;
+        return { ...p, inventory: totalInv };
+      });
+
+      setDashboardProducts(withTotal);
+      const pageCount = response?.meta?.pagination?.pageCount ?? 1;
+      setDashboardProductsPageCount(pageCount);
     } catch (error: any) {
-      console.error("Error fetching low inventory products:", error);
+      console.error("Error fetching dashboard products:", error);
+      setDashboardProducts([]);
+    }
+    finally {
+      setIsLoadingDashboardProducts(false);
     }
   }, [token]);
 
@@ -303,12 +331,18 @@ export default function StaffDashboardPage() {
     setIsLoading(true);
     Promise.all([
       fetchOrderStats(),
-      fetchLowInventoryProducts(),
+      fetchDashboardProducts(1),
       fetchTransactionStats(),
     ]).finally(() => {
       setIsLoading(false);
     });
-  }, [token, fetchOrderStats, fetchLowInventoryProducts, fetchTransactionStats]);
+  }, [token, fetchOrderStats, fetchDashboardProducts, fetchTransactionStats]);
+
+  // chỉ reload section products khi đổi page
+  useEffect(() => {
+    if (!token) return;
+    fetchDashboardProducts(dashboardProductsPage);
+  }, [token, dashboardProductsPage, fetchDashboardProducts]);
 
   return (
     <div className="p-6 space-y-6">
@@ -549,12 +583,12 @@ export default function StaffDashboardPage() {
             </div>
           )}
 
-          {/* Inventory Analytics Section */}
+          {/* Products Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Cảnh báo Tồn kho
+                Sản phẩm
               </h2>
               <Link href="/staff/inventory">
                 <Button variant="outline" size="sm">
@@ -565,89 +599,111 @@ export default function StaffDashboardPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Sản phẩm sắp hết hàng</CardTitle>
+                <CardTitle>Danh sách sản phẩm</CardTitle>
                 <CardDescription>
-                  Danh sách sản phẩm có tồn kho dưới 100 đơn vị
+                  Hiển thị 5 sản phẩm mỗi trang. Tồn kho được tính theo tổng tồn kho các biến thể.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {lowInventoryProducts.length === 0 ? (
+                {isLoadingDashboardProducts ? (
+                  <div className="flex items-center justify-center p-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Đang tải sản phẩm...</span>
+                  </div>
+                ) : dashboardProducts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center p-8 text-center">
-                    <CheckCircle className="h-12 w-12 text-green-600 mb-4" />
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">
-                      Không có sản phẩm nào cần cảnh báo
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Tất cả sản phẩm đều có tồn kho trên 100 đơn vị
+                      Chưa có sản phẩm nào để hiển thị
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="border-b bg-muted/50">
-                        <tr>
-                          <th className="text-left p-3 font-medium">Tên sản phẩm</th>
-                          <th className="text-left p-3 font-medium">SKU</th>
-                          <th className="text-right p-3 font-medium">Tồn kho</th>
-                          <th className="text-center p-3 font-medium">Trạng thái</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lowInventoryProducts.map((product) => {
-                          const inventory = product.inventory ?? 0;
-                          const isLow = inventory < 10;
-                          const isWarning = inventory >= 10 && inventory < 50;
-                          const isCritical = inventory === 0;
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="border-b bg-muted/50">
+                          <tr>
+                            <th className="text-left p-3 font-medium">Tên sản phẩm</th>
+                            <th className="text-left p-3 font-medium">SKU</th>
+                            <th className="text-right p-3 font-medium">Tồn kho</th>
+                            <th className="text-right p-3 font-medium">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboardProducts.map((product) => {
+                            const inventory = product.inventory ?? 0;
+                            return (
+                              <tr
+                                key={product.id}
+                                className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
+                                onClick={() => router.push(`/staff/inventory/${product.id}`)}
+                              >
+                                <td className="p-3">
+                                  <div className="font-medium">{product.title || "N/A"}</div>
+                                </td>
+                                <td className="p-3">
+                                  <code className="text-sm text-muted-foreground">
+                                    {product.sku || "N/A"}
+                                  </code>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <span className="font-semibold">
+                                    {inventory.toLocaleString("vi-VN")}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/staff/inventory/${product.id}`);
+                                    }}
+                                  >
+                                    Mở
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
 
-                          return (
-                            <tr
-                              key={product.id}
-                              className="border-b hover:bg-muted/50 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div className="font-medium">{product.title || "N/A"}</div>
-                              </td>
-                              <td className="p-3">
-                                <code className="text-sm text-muted-foreground">
-                                  {product.sku || "N/A"}
-                                </code>
-                              </td>
-                              <td className="p-3 text-right">
-                                <span className="font-semibold">
-                                  {inventory.toLocaleString("vi-VN")}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex justify-center">
-                                  {isCritical ? (
-                                    <Badge variant="destructive" className="gap-1.5">
-                                      <XCircle className="h-3 w-3" />
-                                      Hết hàng
-                                    </Badge>
-                                  ) : isLow ? (
-                                    <Badge variant="destructive" className="gap-1.5">
-                                      <AlertTriangle className="h-3 w-3" />
-                                      Sắp hết
-                                    </Badge>
-                                  ) : isWarning ? (
-                                    <Badge variant="secondary" className="gap-1.5">
-                                      <AlertCircle className="h-3 w-3" />
-                                      Cần bổ sung
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="gap-1.5">
-                                      <AlertTriangle className="h-3 w-3" />
-                                      Dưới mức
-                                    </Badge>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                    {/* Pagination */}
+                    {dashboardProductsPageCount > 1 && (
+                      <div className="mt-4 flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          Trang {dashboardProductsPage} / {dashboardProductsPageCount}
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDashboardProductsPage((p) => Math.max(1, p - 1))}
+                            disabled={dashboardProductsPage === 1}
+                          >
+                            Trước
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setDashboardProductsPage((p) =>
+                                Math.min(dashboardProductsPageCount, p + 1),
+                              )
+                            }
+                            disabled={dashboardProductsPage === dashboardProductsPageCount}
+                          >
+                            Sau
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

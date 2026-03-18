@@ -361,47 +361,7 @@ function ProductsList() {
               >
                 Bán Chạy
               </Button>
-              <div className="relative" ref={priceSortRef}>
-                <Button
-                  variant={isPriceSort(sort) ? "default" : "ghost"}
-                  size="sm"
-                  className="h-8 gap-1 text-sm"
-                  onClick={() => setPriceSortOpen((o) => !o)}
-                >
-                  Giá
-                  <ChevronDown
-                    className={cn("h-4 w-4 transition-transform", priceSortOpen && "rotate-180")}
-                  />
-                </Button>
-                {priceSortOpen && (
-                  <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-border bg-popover py-1 shadow-md">
-                    <button
-                      type="button"
-                      onClick={() => handleSort("price:asc")}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-sm",
-                        sort === "price:asc"
-                          ? "bg-primary/10 text-primary"
-                          : "hover:bg-muted",
-                      )}
-                    >
-                      Giá thấp đến cao
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort("price:desc")}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-sm",
-                        sort === "price:desc"
-                          ? "bg-primary/10 text-primary"
-                          : "hover:bg-muted",
-                      )}
-                    >
-                      Giá cao đến thấp
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Đã bỏ sắp xếp theo giá vì sản phẩm không còn trường giá */}
             </div>
           </div>
           {/* Pagination indicator */}

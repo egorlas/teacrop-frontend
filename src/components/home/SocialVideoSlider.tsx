@@ -84,11 +84,10 @@ export function SocialVideoSlider() {
           </p>
         </div>
         <div className="relative">
-          <div className="-mx-4 overflow-x-auto pb-4 sm:mx-0">
-            <div
-              ref={trackRef}
-              className="flex justify-center gap-4 px-4 sm:px-0"
-            >
+          {/* scroll container */}
+          <div ref={trackRef} className="-mx-4 overflow-x-auto pb-4 sm:mx-0">
+            {/* track */}
+            <div className="inline-flex min-w-full justify-center gap-4 px-4 sm:px-0">
               {VIDEOS.map((video) => (
                 <button
                   key={video.id}

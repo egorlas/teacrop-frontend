@@ -5,7 +5,7 @@ import Image from "next/image";
 
 export function BundlesBanner() {
   return (
-    <section className="relative border-y border-pink-200 bg-pink-200 py-6 md:py-8">
+    <section className="relative bg-transparent py-6 md:py-8">
       <div className="relative w-full overflow-hidden">
         <div className="relative aspect-[16/6] w-full md:aspect-[16/4.5] lg:aspect-[16/4]">
           <Image

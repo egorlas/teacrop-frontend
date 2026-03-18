@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Container } from "@/components/Container";
 import { useTranslation } from "@/lib/i18n";
 
@@ -27,7 +28,13 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 py-12 md:grid-cols-3">
           <div>
             <Link href="/" className="mb-4 inline-block">
-              <span className="font-audiowide text-2xl font-bold text-primary">Tea Love</span>
+              <Image
+                src="/tealogo.png"
+                alt="Tea Love"
+                width={240}
+                height={64}
+                className="h-9 w-auto"
+              />
             </Link>
             <p className="text-sm text-muted-foreground">
               {t("footer.tagline")}

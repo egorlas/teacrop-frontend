@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { TopBar } from "@/components/home/TopBar";
 import { Header } from "@/components/home/Header";
-import { NavMenu } from "@/components/home/NavMenu";
+import { HomeNavSearch } from "@/components/home/HomeNavSearch";
 import { HeroBanner } from "@/components/home/HeroBanner";
 import { FeatureIcons } from "@/components/home/FeatureIcons";
 import { CategoryGrid } from "@/components/home/CategoryGrid";
@@ -23,7 +23,10 @@ export const revalidate = 300;
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
+    <div
+      className="min-h-screen bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50"
+      style={{ zoom: 1.5 }}
+    >
       <FloatingHearts />
       <TopBar />
       {/* Thanh đăng nhập / đăng ký nhanh */}
@@ -32,7 +35,7 @@ export default function HomePage() {
       <Suspense fallback={null}>
         <Header />
       </Suspense>
-      <NavMenu />
+      <HomeNavSearch />
       <main className="space-y-6 md:space-y-8">
         {/* Hero & campaign */}
         <HeroBanner />

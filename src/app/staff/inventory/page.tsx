@@ -295,8 +295,8 @@ export default function InventoryPage() {
                 <thead className="border-b bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium">Tên sản phẩm</th>
-                    <th className="text-left p-4 font-medium">SKU</th>
                     <th className="text-left p-4 font-medium">Loại</th>
+                    <th className="text-left p-4 font-medium">SKU</th>
                     <th className="text-left p-4 font-medium">Tồn kho (tổng kết)</th>
                     <th className="text-center p-4 font-medium">Trạng thái</th>
                     <th className="text-left p-4 font-medium">Cập nhật</th>

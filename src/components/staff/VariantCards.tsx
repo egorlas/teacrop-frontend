@@ -60,7 +60,7 @@ export function VariantCards({
     (acc, v) => acc + (v.inventory ?? 0),
     0,
   );
-
+  console.log(variants)
   return (
     <div className="border rounded-lg bg-card p-4 space-y-4">
       <div className="flex items-center justify-between mb-2">
@@ -119,12 +119,9 @@ export function VariantCards({
                 const file = e.target.files?.[0] as File | undefined;
                 if (!file) return;
 
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const result = reader.result as string;
-                  onChange(index, "thumbnail", result);
-                };
-                reader.readAsDataURL(file);
+                // Gửi file thô lên parent qua field thumbnail (giữ nguyên type là string ở VariantRow)
+                // Parent sẽ nhận và lưu vào state riêng để upload khi bấm "Lưu"
+                (onChange as any)(index, "thumbnail", file);
               };
 
               input.click();
@@ -132,7 +129,7 @@ export function VariantCards({
 
             const imageSrc =
               v.thumbnail || productImageUrl || "/placeholder.png";
-
+            
             return (
               <article
                 key={v.id ?? `row-${index}`}
@@ -258,6 +255,20 @@ export function VariantCards({
                         }
                         placeholder="100"
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Đóng gói</Label>
+                      <select
+                        className="h-8 w-full rounded-md border px-2 text-[11px] bg-white"
+                        value={v.package ?? ""}
+                        onChange={(e) =>
+                          onChange(index, "package", e.target.value)
+                        }
+                      >
+                        <option value="">Chưa chọn</option>
+                        <option value="bag">Túi</option>
+                        <option value="box">Hộp</option>
+                      </select>
                     </div>
                   </div>
 

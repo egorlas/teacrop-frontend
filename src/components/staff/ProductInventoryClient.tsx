@@ -6,6 +6,7 @@ import { Hash, Package, Plus, Save, Loader2, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -17,9 +18,52 @@ import { useAuthStore } from "@/store/auth";
 import { strapiClient } from "@/lib/strapi/strapiClient";
 import { VariantCards, VariantRow } from "@/components/staff/VariantCards";
 import { LexicalDescriptionEditor } from "@/components/staff/LexicalDescriptionEditor";
+import { toast } from "sonner";
 
 interface Props {
   productId?: number;
+}
+
+// Chuẩn hóa chuỗi: bỏ dấu tiếng Việt, giữ lại chữ cái/ chữ số
+function normalizeText(input: string): string {
+  return input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
+// Build SKU cho biến thể dựa trên SKU sản phẩm + tên biến thể
+// VD: baseSku = BTGC, name = "Giàng Cao (100gr)" -> "BTGC_GC_100gr"
+function buildVariantSku(baseSku: string, nameVariant: string): string {
+  const base = baseSku?.trim();
+  const name = nameVariant?.trim();
+  if (!base || !name) return "";
+
+  // Tách phần tên và phần trong ngoặc (thường là khối lượng)
+  const match = name.match(/^(.*?)\s*\((.*?)\)\s*$/);
+  const mainName = match ? match[1] : name;
+  const extra = match ? match[2] : "";
+
+  const normalizedMain = normalizeText(mainName).toUpperCase();
+
+  // Lấy chữ cái đầu của từng từ: "Giàng Cao" -> "GC"
+  const initials = normalizedMain
+    .split(/[\s\-]+/)
+    .filter((w) => w.length > 0)
+    .map((w) => w[0])
+    .join("");
+
+  let variantPart = initials;
+
+  if (extra) {
+    const normalizedExtra = normalizeText(extra).replace(/[^A-Za-z0-9]/g, "");
+    if (normalizedExtra) {
+      variantPart = `${variantPart}_${normalizedExtra}`;
+    }
+  }
+
+  return `${base}_${variantPart}`;
 }
 
 function formatPrice(price?: number | null) {
@@ -28,6 +72,21 @@ function formatPrice(price?: number | null) {
     style: "currency",
     currency: "VND",
   }).format(price);
+}
+
+function computeProductPriceRange(nextVariants: VariantRow[]): string {
+  const prices = nextVariants
+    .map((v) =>
+      v?.sale_price === null || v?.sale_price === undefined
+        ? null
+        : Number(v.sale_price),
+    )
+    .filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+
+  if (prices.length === 0) return "";
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  return `${low}-${high}`;
 }
 
 export function ProductInventoryClient({ productId }: Props) {
@@ -39,11 +98,14 @@ export function ProductInventoryClient({ productId }: Props) {
 
   const [productForm, setProductForm] = useState({
     title: "",
+    slug: "",
     sku: "",
+    price_range: "",
     productType: "",
     teaType: "",
     ingredient: "",
     finished_goods: "",
+    short_description: "",
     description: "",
   imageUrl: "",
     attributes: {
@@ -57,6 +119,10 @@ export function ProductInventoryClient({ productId }: Props) {
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
 
   const [variants, setVariants] = useState<VariantRow[]>([]);
+  // Lưu file thumbnail tạm cho từng biến thể theo key id (hoặc index fallback)
+  const [pendingVariantThumbnails, setPendingVariantThumbnails] = useState<
+    Record<string, File>
+  >({});
   const [isSavingVariants, setIsSavingVariants] = useState(false);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   useEffect(() => {
@@ -95,11 +161,14 @@ export function ProductInventoryClient({ productId }: Props) {
         const attr = rawData.attributes || rawData;
 
         const productTitle = (attr.title as string | undefined) ?? "";
+        const productSlug = (attr.slug as string | undefined) ?? "";
         const productSku = (attr.sku as string | undefined) ?? "";
+        const productPriceRange = (attr.price_range as string | undefined) ?? "";
         const productType = (attr.productType as string | undefined) ?? "";
         const teaType = (attr.teaType as string | undefined) ?? "";
         const ingredient = (attr.ingredient as string | undefined) ?? "";
         const finishedGoods = (attr.finished_goods as string | undefined) ?? "";
+        const shortDescription = (attr.short_description as string | undefined) ?? "";
 
         // image (media)
         let imageUrl = "";
@@ -127,29 +196,10 @@ export function ProductInventoryClient({ productId }: Props) {
           }
         }
 
-        // description (blocks) -> simple plain text
-        let descriptionText = "";
-        const description = attr.description;
-        if (description) {
-          try {
-            if (Array.isArray(description)) {
-              descriptionText = description
-                .map((block: any) => {
-                  if (block?.children && Array.isArray(block.children)) {
-                    return block.children
-                      .map((c: any) => c.text || "")
-                      .join("");
-                  }
-                  return block.text || "";
-                })
-                .join("\n");
-            } else if (typeof description === "string") {
-              descriptionText = description;
-            }
-          } catch {
-            // ignore parse errors
-          }
-        }
+        // description: mô tả chi tiết (HTML từ Lexical ở backend)
+        // Chỉ cần giữ nguyên string HTML để editor + preview hoạt động đúng.
+        const descriptionText =
+          typeof attr.description === "string" ? attr.description : "";
 
         // attributes JSON
         let attributes = {
@@ -237,11 +287,14 @@ export function ProductInventoryClient({ productId }: Props) {
 
         setProductForm({
           title: productTitle,
+          slug: productSlug,
           sku: productSku,
+          price_range: productPriceRange,
           productType,
           teaType,
           ingredient,
           finished_goods: finishedGoods,
+          short_description: shortDescription,
           description: descriptionText,
           imageUrl,
           attributes,
@@ -296,9 +349,44 @@ export function ProductInventoryClient({ productId }: Props) {
     key: keyof VariantRow,
     value: string,
   ) => {
-    setVariants((prev) =>
-      prev.map((row, i) => {
+    setVariants((prev) => {
+      // Dùng bản copy để có thể kiểm tra trùng SKU sau khi cập nhật
+      const next = prev.map((row, i) => {
         if (i !== index) return row;
+
+        // Thumbnail: value ở đây thực tế là File (truyền từ VariantCards)
+        if (key === "thumbnail") {
+          const file = value as unknown as File;
+          const rowKey = String(row.id ?? i);
+          if (file) {
+            setPendingVariantThumbnails((curr) => ({
+              ...curr,
+              [rowKey]: file,
+            }));
+          } else {
+            setPendingVariantThumbnails((curr) => {
+              const clone = { ...curr };
+              delete clone[rowKey];
+              return clone;
+            });
+          }
+          // Preview local tạm bằng URL.createObjectURL
+          return {
+            ...row,
+            thumbnail: file ? URL.createObjectURL(file) : row.thumbnail,
+          };
+        }
+
+        // Khi đổi tên biến thể, luôn build lại SKU từ tên + SKU sản phẩm
+        if (key === "name_variant") {
+          const autoSku = buildVariantSku(productForm.sku, value);
+          return {
+            ...row,
+            name_variant: value,
+            SKU: autoSku,
+          };
+        }
+
         if (key === "default_price" || key === "sale_price") {
           return { ...row, [key]: value === "" ? null : Number(value) };
         }
@@ -306,61 +394,179 @@ export function ProductInventoryClient({ productId }: Props) {
           return { ...row, [key]: value === "" ? 0 : Number(value) };
         }
         return { ...row, [key]: value };
-      }),
-    );
+      });
+
+      // Sau khi user dừng nhập tên biến thể, kiểm tra SKU mới có bị trùng không
+      if (key === "name_variant") {
+        const current = next[index];
+        const sku = current?.SKU?.trim();
+        if (sku) {
+          const duplicated = next.some((v, i) => i !== index && v.SKU?.trim() === sku);
+          if (duplicated) {
+            alert("SKU của biến thể này đang trùng với một biến thể khác. Vui lòng đổi tên biến thể hoặc chỉnh lại SKU.");
+          }
+        }
+      }
+
+      return next;
+    });
   };
 
   const handleSaveSingleVariant = async (index: number) => {
     if (!hasProductId) {
-      alert("Vui lòng tạo và lưu sản phẩm trước khi thêm biến thể.");
+      toast.error("Vui lòng tạo và lưu sản phẩm trước khi thêm biến thể.");
       return;
     }
     if (!token) {
-      alert("Thiếu token xác thực. Vui lòng đăng nhập lại.");
+      toast.error("Thiếu token xác thực. Vui lòng đăng nhập lại.");
       return;
     }
 
     const variant = variants[index];
     if (!variant) return;
 
-    const isNew = typeof variant.id === "string" && variant.id.startsWith("new-");
+    const variantKey = String(variant.id ?? index);
+    const pendingThumbFile = pendingVariantThumbnails[variantKey];
 
-    const payload: any = {
-      name_variant: variant.name_variant,
-      SKU: variant.SKU,
-      inventory: variant.inventory ?? 0,
-      default_price: variant.default_price ?? 0,
-      sale_price: variant.sale_price ?? 0,
-      weight: variant.weight ?? null,
-      package: variant.package || null,
-      product: productId,
-    };
+    // Validate SKU biến thể trùng trước khi cho lưu
+    const sku = variant.SKU?.trim();
+    if (sku) {
+      const duplicated = variants.some(
+        (v, i) => i !== index && v.SKU?.trim() === sku,
+      );
+      if (duplicated) {
+        toast.error(
+          "SKU biến thể bị trùng với một biến thể khác, không thể lưu. Vui lòng chỉnh lại tên hoặc SKU.",
+        );
+        return;
+      }
+    }
 
     try {
       setIsSavingVariants(true);
 
-      if (isNew) {
-        // Tạo mới biến thể
-        await strapiClient("/api/product-variants", {
-          method: "POST",
-          requiresAuth: true,
-          token,
-          body: JSON.stringify({ data: payload }),
-        });
-      } else {
-        // Cập nhật biến thể hiện có
-        await strapiClient(`/api/product-variants/${variant.id}`, {
-          method: "PUT",
-          requiresAuth: true,
-          token,
-          body: JSON.stringify({ data: payload }),
+      let nextVariants: VariantRow[] = [...variants];
+
+      const res = await strapiClient<any>("/api/products/update-new-variant", {
+        method: "POST",
+        requiresAuth: true,
+        token,
+        body: JSON.stringify({
+          productId,
+          variant: {
+            id: typeof variant.id === "number" ? variant.id : undefined,
+            name_variant: variant.name_variant,
+            SKU: variant.SKU,
+            inventory: variant.inventory ?? 0,
+            default_price: variant.default_price ?? null,
+            sale_price: variant.sale_price ?? null,
+            weight: variant.weight ?? null,
+            package: variant.package || null,
+          },
+        }),
+      });
+
+      const saved = res?.data || res;
+      let savedVariantId = saved?.id as number | undefined;
+      let savedSku = (saved?.SKU as string | undefined) ?? sku ?? "";
+
+      if (saved?.id) {
+        // Cập nhật lại id & dữ liệu biến thể (phòng trường hợp tạo mới)
+        nextVariants = nextVariants.map((row, i) =>
+          i === index
+            ? {
+                ...row,
+                id: saved.id,
+                name_variant: saved.name_variant ?? row.name_variant,
+                SKU: saved.SKU ?? row.SKU,
+                inventory:
+                  saved.inventory !== undefined ? saved.inventory : row.inventory,
+                default_price:
+                  saved.default_price !== undefined
+                    ? Number(saved.default_price)
+                    : row.default_price,
+                sale_price:
+                  saved.sale_price !== undefined
+                    ? Number(saved.sale_price)
+                    : row.sale_price,
+                weight:
+                  saved.weight !== undefined ? Number(saved.weight) : row.weight,
+                package: (saved.package as any) ?? row.package,
+              }
+            : row,
+        );
+      }
+
+      // Sau khi đã có id (kể cả mới tạo) và có ảnh mới -> upload thumbnail
+      if (pendingThumbFile && savedVariantId && savedSku) {
+        const apiUrl =
+          process.env.NEXT_PUBLIC_STRAPI_URL ||
+          process.env.NEXT_PUBLIC_API_URL ||
+          "http://192.168.31.187:1337";
+
+        const formData = new FormData();
+        formData.append("files", pendingThumbFile, pendingThumbFile.name);
+        formData.append("sku", savedSku);
+        formData.append("variantId", String(savedVariantId));
+
+        const resUpload = await fetch(
+          `${apiUrl}/api/product-variants/upload-thumbnail`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (!resUpload.ok) {
+          throw new Error("Không thể upload ảnh cho biến thể.");
+        }
+
+        const json = await resUpload.json();
+        const uploaded = json?.data;
+        if (uploaded?.url) {
+          nextVariants = nextVariants.map((row, i) =>
+            i === index ? { ...row, thumbnail: uploaded.url } : row,
+          );
+        }
+
+        // Xóa file tạm sau khi upload xong
+        setPendingVariantThumbnails((curr) => {
+          const clone = { ...curr };
+          delete clone[variantKey];
+          return clone;
         });
       }
 
-      alert("Lưu biến thể thành công.");
+      // Commit variants state
+      setVariants(nextVariants);
+
+      // Update product.price_range mỗi khi lưu biến thể
+      if (productId) {
+        const priceRange = computeProductPriceRange(nextVariants);
+        setProductForm((f) => ({ ...f, price_range: priceRange }));
+        try {
+          await strapiClient<any>(`/api/products/${productId}`, {
+            method: "PUT",
+            requiresAuth: true,
+            token,
+            body: JSON.stringify({ data: { price_range: priceRange || null } }),
+          });
+        } catch (e) {
+          console.error("Update product price_range error:", e);
+        }
+      }
+
+      toast.success("Lưu biến thể thành công.");
     } catch (err: any) {
       console.error("Save single variant error", err);
-      alert(err?.message || "Không thể lưu biến thể.");
+      const message =
+        err?.message ||
+        err?.error?.message ||
+        "Không thể lưu biến thể.";
+      toast.error(message);
     } finally {
       setIsSavingVariants(false);
     }
@@ -368,7 +574,7 @@ export function ProductInventoryClient({ productId }: Props) {
 
   const handleSaveVariants = async () => {
     if (!token) {
-      alert("Thiếu token xác thực. Vui lòng đăng nhập lại.");
+      toast.error("Thiếu token xác thực. Vui lòng đăng nhập lại.");
       return;
     }
 
@@ -376,10 +582,10 @@ export function ProductInventoryClient({ productId }: Props) {
       setIsSavingVariants(true);
       // TODO: Gọi API lưu biến thể (bulk update) ở backend.
       console.log("Variants to save", variants);
-      alert("Đã chuẩn bị dữ liệu biến thể để lưu (chưa nối API backend).");
+      toast.success("Đã chuẩn bị dữ liệu biến thể để lưu (chưa nối API backend).");
     } catch (err: any) {
       console.error("Save variants error", err);
-      alert(err?.message || "Không thể lưu biến thể.");
+      toast.error(err?.message || "Không thể lưu biến thể.");
     } finally {
       setIsSavingVariants(false);
     }
@@ -390,24 +596,33 @@ export function ProductInventoryClient({ productId }: Props) {
       if (!hasHydrated) return;
 
       if (!token) {
-        alert("Thiếu token xác thực. Vui lòng đăng nhập lại.");
+        toast.error("Thiếu token xác thực. Vui lòng đăng nhập lại.");
         return;
       }
 
       if (!productForm.title.trim()) {
-        alert("Vui lòng nhập tên sản phẩm.");
+        toast.error("Vui lòng nhập tên sản phẩm.");
         return;
       }
 
       setIsSavingProduct(true);
 
+      // Tính lại price_range từ sale_price của variants hiện tại
+      const computedPriceRange = computeProductPriceRange(variants);
+      if (computedPriceRange !== productForm.price_range) {
+        setProductForm((f) => ({ ...f, price_range: computedPriceRange }));
+      }
+
       const payload: any = {
         title: productForm.title.trim(),
+        slug: productForm.slug.trim() || undefined,
         sku: productForm.sku.trim() || undefined,
+        price_range: computedPriceRange || undefined,
         productType: productForm.productType || undefined,
         teaType: productForm.teaType || undefined,
         ingredient: productForm.ingredient || undefined,
         finished_goods: productForm.finished_goods || undefined,
+        short_description: productForm.short_description || undefined,
         // Lưu mô tả dưới dạng HTML (đã sinh từ Lexical)
         description: productForm.description || undefined,
       };
@@ -579,7 +794,7 @@ export function ProductInventoryClient({ productId }: Props) {
           }
         }
 
-        alert("Đã lưu thông tin sản phẩm.");
+        toast.success("Đã lưu thông tin sản phẩm.");
       }
     } catch (err: any) {
       console.error("Save product error", err);
@@ -638,6 +853,29 @@ export function ProductInventoryClient({ productId }: Props) {
                 }
                 placeholder="Nhập tên sản phẩm..."
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug (URL)</Label>
+              <Input
+                id="slug"
+                value={productForm.slug}
+                onChange={(e) => {
+                  // Chuẩn hóa slug: lowercase, bỏ dấu, chỉ giữ a-z0-9- 
+                  const raw = e.target.value;
+                  const normalized = raw
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "");
+                  setProductForm((f) => ({ ...f, slug: normalized }));
+                }}
+                placeholder="vd: giang-cao-100gr"
+              />
+              <p className="text-xs text-muted-foreground">
+                Slug dùng trong URL sản phẩm, chỉ gồm chữ thường, số và dấu gạch ngang.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -801,9 +1039,30 @@ export function ProductInventoryClient({ productId }: Props) {
 
           </div>
 
-          {/* Mô tả sản phẩm (Lexical template) */}
+          {/* Mô tả sản phẩm (short + chi tiết) */}
           <div className="p-4 border rounded-lg bg-card space-y-4">
             <h2 className="text-lg font-semibold">Mô tả sản phẩm</h2>
+
+            {/* Mô tả ngắn (short_description) */}
+            <div className="space-y-2">
+              <Label className="text-sm">Mô tả ngắn</Label>
+              <Textarea
+                rows={3}
+                value={productForm.short_description}
+                onChange={(e) =>
+                  setProductForm((f) => ({
+                    ...f,
+                    short_description: e.target.value,
+                  }))
+                }
+                placeholder="Nhập mô tả ngắn về sản phẩm..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Đoạn mô tả ngắn sẽ được dùng ở danh sách sản phẩm và các vị trí tóm tắt.
+              </p>
+            </div>
+
+            {/* Mô tả chi tiết (HTML từ Lexical) */}
             <div className="space-y-2">
               <Label className="text-sm">Mô tả chi tiết</Label>
               <LexicalDescriptionEditor

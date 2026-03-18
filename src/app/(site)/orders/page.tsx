@@ -552,18 +552,16 @@ export default function OrdersPage() {
                       <span>Tạm tính:</span>
                       <span>{formatCurrencyVND(selectedOrder.subtotal)}</span>
                     </div>
-                    {selectedOrder.shippingFee && selectedOrder.shippingFee > 0 && (
-                      <div className="flex justify-between">
-                        <span>Phí vận chuyển:</span>
-                        <span>{formatCurrencyVND(selectedOrder.shippingFee)}</span>
-                      </div>
-                    )}
-                    {selectedOrder.discount && selectedOrder.discount > 0 && (
+                    <div className="flex justify-between">
+                      <span>Phí vận chuyển:</span>
+                      <span>{formatCurrencyVND(selectedOrder.shippingFee ?? 0)}</span>
+                    </div>
+                  
                       <div className="flex justify-between text-green-600">
                         <span>Giảm giá:</span>
-                        <span>-{formatCurrencyVND(selectedOrder.discount)}</span>
+                        <span>-{formatCurrencyVND(selectedOrder.discount ?? 0)}</span>
                       </div>
-                    )}
+               
                     <div className="flex justify-between border-t pt-2 font-semibold text-lg">
                       <span>Tổng tiền:</span>
                       <span className="text-primary">{formatCurrencyVND(selectedOrder.totalAmount)}</span>
