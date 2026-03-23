@@ -16,8 +16,8 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { ToastContainer, type ToastProps } from "@/components/ui/toast";
 import { strapiClient } from "@/lib/strapi/strapiClient";
 
@@ -25,6 +25,7 @@ interface InventoryProduct {
   id: number;
   title?: string;
   sku?: string;
+  enable?: boolean | null;
   productType?: string;
   teaType?: string;
   ingredient?: string;
@@ -74,6 +75,7 @@ export default function InventoryPage() {
   const [totalProducts, setTotalProducts] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [toasts, setToasts] = useState<ToastProps[]>([]);
+  const [togglingProductIds, setTogglingProductIds] = useState<number[]>([]);
   const pageSize = 25;
 
   // Debounce search query
@@ -99,11 +101,21 @@ export default function InventoryPage() {
       const queryParams = new URLSearchParams({
         "pagination[page]": String(currentPage),
         "pagination[pageSize]": String(pageSize),
-        "sort": "updatedAt:desc",
-        "populate": "product_variants",
+        "pagination[withCount]": "true",
+        "sort[0]": "updatedAt:desc",
+        "populate[product_variants][fields][0]": "inventory",
       });
 
-      // Add search filter if exists
+      queryParams.append("fields[0]", "title");
+      queryParams.append("fields[1]", "sku");
+      queryParams.append("fields[2]", "productType");
+      queryParams.append("fields[3]", "teaType");
+      queryParams.append("fields[4]", "ingredient");
+      queryParams.append("fields[5]", "finished_goods");
+      queryParams.append("fields[6]", "enable");
+      queryParams.append("fields[7]", "createdAt");
+      queryParams.append("fields[8]", "updatedAt");
+
       if (debouncedSearch.trim()) {
         queryParams.append("filters[$or][0][title][$contains]", debouncedSearch.trim());
         queryParams.append("filters[$or][1][sku][$contains]", debouncedSearch.trim());
@@ -115,12 +127,23 @@ export default function InventoryPage() {
           method: "GET",
           token,
           requiresAuth: true,
+          cache: "no-store",
         }
       );
 
       if (response?.data) {
         // Với Strapi v5, dữ liệu product đã là flat, chỉ cần map thêm summary tồn kho từ product_variants nếu có
-        const transformed = response.data.map((p: any) => {
+        const transformed = response.data.map((pRaw: any) => {
+          const p = pRaw?.attributes ? { ...pRaw.attributes, id: pRaw.id } : pRaw;
+          const rawEnable = p?.enable;
+          const normalizedEnable =
+            typeof rawEnable === "boolean"
+              ? rawEnable
+              : rawEnable === "true"
+                ? true
+                : rawEnable === "false"
+                  ? false
+                  : null;
           let inventorySummary: string | undefined;
           const variants = p.product_variants || [];
           if (Array.isArray(variants) && variants.length > 0) {
@@ -145,6 +168,7 @@ export default function InventoryPage() {
             id: p.id,
             title: p.title,
             sku: p.sku,
+            enable: normalizedEnable,
             productType: p.productType,
             teaType: p.teaType,
             ingredient: p.ingredient,
@@ -188,6 +212,55 @@ export default function InventoryPage() {
         onClose: () => removeToast(toast.id),
       },
     ]);
+  };
+
+  const handleToggleEnable = async (product: InventoryProduct) => {
+    if (!token) {
+      addToast({
+        id: Date.now().toString(),
+        title: "Lỗi",
+        description: "Thiếu token xác thực. Vui lòng đăng nhập lại.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const nextEnable = !Boolean(product.enable);
+    setTogglingProductIds((prev) => [...prev, product.id]);
+
+    try {
+      await strapiClient(`/api/products/${product.id}`, {
+        method: "PUT",
+        token,
+        requiresAuth: true,
+        body: JSON.stringify({
+          data: {
+            enable: nextEnable,
+          },
+        }),
+      });
+
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, enable: nextEnable } : p)),
+      );
+
+      addToast({
+        id: Date.now().toString(),
+        title: "Thành công",
+        description: nextEnable
+          ? "Sản phẩm đã hiển thị cho khách hàng trên website."
+          : "Sản phẩm đã được ẩn khỏi website khách hàng.",
+      });
+    } catch (error: any) {
+      addToast({
+        id: Date.now().toString(),
+        title: "Lỗi",
+        description: error?.message || "Không thể cập nhật trạng thái bán của sản phẩm.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingProductIds((prev) => prev.filter((id) => id !== product.id));
+    }
   };
 
   // Thống kê đơn giản theo số product
@@ -299,6 +372,7 @@ export default function InventoryPage() {
                     <th className="text-left p-4 font-medium">SKU</th>
                     <th className="text-left p-4 font-medium">Tồn kho (tổng kết)</th>
                     <th className="text-center p-4 font-medium">Trạng thái</th>
+                    <th className="text-center p-4 font-medium">Hiển thị với khách</th>
                     <th className="text-left p-4 font-medium">Cập nhật</th>
                     <th className="text-center p-4 font-medium">Thao tác</th>
                   </tr>
@@ -307,6 +381,8 @@ export default function InventoryPage() {
                   {products.map((product) => {
                     const status = getInventoryStatus(product.inventorySummary);
                     const StatusIcon = status.icon;
+                    const isEnabled = product.enable === true;
+                    const isToggling = togglingProductIds.includes(product.id);
 
                     return (
                       <tr
@@ -339,6 +415,25 @@ export default function InventoryPage() {
                             <Badge variant={status.variant} className="gap-1.5">
                               <StatusIcon className="h-3 w-3" />
                               {status.label}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <Switch
+                              checked={isEnabled}
+                              onCheckedChange={() => handleToggleEnable(product)}
+                              disabled={isToggling}
+                              aria-label={`Trạng thái bán của ${product.title || "sản phẩm"}`}
+                            />
+                            <Badge variant={isEnabled ? "default" : "secondary"}>
+                              {isToggling
+                                ? "Đang cập nhật..."
+                                : product.enable === null
+                                  ? "Chưa có dữ liệu"
+                                  : isEnabled
+                                  ? "Đang hiển thị"
+                                  : "Tạm ẩn"}
                             </Badge>
                           </div>
                         </td>

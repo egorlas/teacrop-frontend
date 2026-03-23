@@ -54,10 +54,10 @@ export function UserReviews() {
   }, []);
 
   return (
-    <section className="border-y border-rose-100 bg-white/90 py-10">
+    <section className="bg-white/90 py-10">
       <Container>
         <div className="mb-6 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-rose-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
             user reviews
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
@@ -75,9 +75,9 @@ export function UserReviews() {
               }`}
             >
               <div className="mb-3 flex items-center justify-center">
-                <div className="relative h-12 w-12 overflow-hidden rounded-full bg-rose-100 sm:h-14 sm:w-14">
+                <div className="relative h-12 w-12 overflow-hidden rounded-full bg-slate-100 sm:h-14 sm:w-14">
                   <Image
-                    src={`https://placehold.co/80x80/fce7f3/f973a5?text=${encodeURIComponent(
+                    src={`https://placehold.co/80x80/e2e8f0/334155?text=${encodeURIComponent(
                       review.name.charAt(0),
                     )}`}
                     alt={review.name}
@@ -108,7 +108,7 @@ export function UserReviews() {
               type="button"
               onClick={() => setIndex(i)}
               className={`h-2 rounded-full transition-all ${
-                i === index ? "w-5 bg-rose-400" : "w-2 bg-rose-200"
+                i === index ? "w-5 bg-slate-500" : "w-2 bg-slate-300"
               }`}
               aria-label={`Xem đánh giá ${i + 1}`}
             />

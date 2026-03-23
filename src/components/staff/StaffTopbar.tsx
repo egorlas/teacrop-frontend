@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
@@ -40,9 +39,13 @@ export function StaffTopbar() {
   return (
     <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
-        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to Website
-        </Link>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Back
+        </button>
       </div>
 
       <div className="flex items-center gap-4">

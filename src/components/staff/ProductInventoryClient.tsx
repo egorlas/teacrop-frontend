@@ -74,6 +74,15 @@ function formatPrice(price?: number | null) {
   }).format(price);
 }
 
+function normalizeSlug(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function computeProductPriceRange(nextVariants: VariantRow[]): string {
   const prices = nextVariants
     .map((v) =>
@@ -412,6 +421,151 @@ export function ProductInventoryClient({ productId }: Props) {
     });
   };
 
+  const hasDuplicateVariantSku = (rows: VariantRow[]) => {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      const sku = row.SKU?.trim();
+      if (!sku) continue;
+      if (seen.has(sku)) return true;
+      seen.add(sku);
+    }
+    return false;
+  };
+
+  const saveAllVariantsForProduct = async (
+    targetProductId: number,
+    options?: { showSuccessToast?: boolean },
+  ) => {
+    if (!token) {
+      throw new Error("Thiếu token xác thực. Vui lòng đăng nhập lại.");
+    }
+
+    if (variants.length === 0) return;
+
+    if (hasDuplicateVariantSku(variants)) {
+      throw new Error(
+        "SKU biến thể đang bị trùng. Vui lòng chỉnh lại SKU trước khi lưu sản phẩm.",
+      );
+    }
+
+    setIsSavingVariants(true);
+    let nextVariants: VariantRow[] = [...variants];
+    let nextPendingThumbnails = { ...pendingVariantThumbnails };
+
+    try {
+      for (let index = 0; index < nextVariants.length; index += 1) {
+        const variant = nextVariants[index];
+        const variantKey = String(variant.id ?? index);
+        const pendingThumbFile = nextPendingThumbnails[variantKey];
+
+        const res = await strapiClient<any>("/api/products/update-new-variant", {
+          method: "POST",
+          requiresAuth: true,
+          token,
+          body: JSON.stringify({
+            productId: targetProductId,
+            variant: {
+              id: typeof variant.id === "number" ? variant.id : undefined,
+              name_variant: variant.name_variant,
+              SKU: variant.SKU,
+              inventory: variant.inventory ?? 0,
+              default_price: variant.default_price ?? null,
+              sale_price: variant.sale_price ?? null,
+              weight: variant.weight ?? null,
+              package: variant.package || null,
+            },
+          }),
+        });
+
+        const saved = res?.data || res;
+        const savedVariantId = saved?.id as number | undefined;
+        const savedSku =
+          (saved?.SKU as string | undefined) ?? variant.SKU?.trim() ?? "";
+
+        if (savedVariantId) {
+          nextVariants = nextVariants.map((row, i) =>
+            i === index
+              ? {
+                  ...row,
+                  id: savedVariantId,
+                  name_variant: saved.name_variant ?? row.name_variant,
+                  SKU: saved.SKU ?? row.SKU,
+                  inventory:
+                    saved.inventory !== undefined ? saved.inventory : row.inventory,
+                  default_price:
+                    saved.default_price !== undefined
+                      ? Number(saved.default_price)
+                      : row.default_price,
+                  sale_price:
+                    saved.sale_price !== undefined
+                      ? Number(saved.sale_price)
+                      : row.sale_price,
+                  weight:
+                    saved.weight !== undefined ? Number(saved.weight) : row.weight,
+                  package: (saved.package as any) ?? row.package,
+                }
+              : row,
+          );
+        }
+
+        if (pendingThumbFile && savedVariantId && savedSku) {
+          const apiUrl =
+            process.env.NEXT_PUBLIC_STRAPI_URL ||
+            process.env.NEXT_PUBLIC_API_URL ||
+            "http://192.168.31.187:1337";
+
+          const formData = new FormData();
+          formData.append("files", pendingThumbFile, pendingThumbFile.name);
+          formData.append("sku", savedSku);
+          formData.append("variantId", String(savedVariantId));
+
+          const resUpload = await fetch(
+            `${apiUrl}/api/product-variants/upload-thumbnail`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              body: formData,
+            },
+          );
+
+          if (!resUpload.ok) {
+            throw new Error("Không thể upload ảnh cho biến thể.");
+          }
+
+          const json = await resUpload.json();
+          const uploaded = json?.data;
+          if (uploaded?.url) {
+            nextVariants = nextVariants.map((row, i) =>
+              i === index ? { ...row, thumbnail: uploaded.url } : row,
+            );
+          }
+
+          delete nextPendingThumbnails[variantKey];
+        }
+      }
+
+      setVariants(nextVariants);
+      setPendingVariantThumbnails(nextPendingThumbnails);
+
+      const priceRange = computeProductPriceRange(nextVariants);
+      setProductForm((f) => ({ ...f, price_range: priceRange }));
+      await strapiClient<any>(`/api/products/${targetProductId}`, {
+        method: "PUT",
+        requiresAuth: true,
+        token,
+        body: JSON.stringify({ data: { price_range: priceRange || null } }),
+      });
+
+      if (options?.showSuccessToast) {
+        toast.success("Đã lưu toàn bộ biến thể.");
+      }
+    } finally {
+      setIsSavingVariants(false);
+    }
+  };
+
   const handleSaveSingleVariant = async (index: number) => {
     if (!hasProductId) {
       toast.error("Vui lòng tạo và lưu sản phẩm trước khi thêm biến thể.");
@@ -573,21 +727,16 @@ export function ProductInventoryClient({ productId }: Props) {
   };
 
   const handleSaveVariants = async () => {
-    if (!token) {
-      toast.error("Thiếu token xác thực. Vui lòng đăng nhập lại.");
+    if (!hasProductId || !productId) {
+      toast.error("Vui lòng tạo và lưu sản phẩm trước khi lưu biến thể.");
       return;
     }
 
     try {
-      setIsSavingVariants(true);
-      // TODO: Gọi API lưu biến thể (bulk update) ở backend.
-      console.log("Variants to save", variants);
-      toast.success("Đã chuẩn bị dữ liệu biến thể để lưu (chưa nối API backend).");
+      await saveAllVariantsForProduct(productId, { showSuccessToast: true });
     } catch (err: any) {
       console.error("Save variants error", err);
       toast.error(err?.message || "Không thể lưu biến thể.");
-    } finally {
-      setIsSavingVariants(false);
     }
   };
 
@@ -615,7 +764,7 @@ export function ProductInventoryClient({ productId }: Props) {
 
       const payload: any = {
         title: productForm.title.trim(),
-        slug: productForm.slug.trim() || undefined,
+        slug: normalizeSlug(productForm.slug.trim()) || undefined,
         sku: productForm.sku.trim() || undefined,
         price_range: computedPriceRange || undefined,
         productType: productForm.productType || undefined,
@@ -794,6 +943,10 @@ export function ProductInventoryClient({ productId }: Props) {
           }
         }
 
+        if (productId) {
+          await saveAllVariantsForProduct(productId);
+        }
+
         toast.success("Đã lưu thông tin sản phẩm.");
       }
     } catch (err: any) {
@@ -860,17 +1013,15 @@ export function ProductInventoryClient({ productId }: Props) {
               <Input
                 id="slug"
                 value={productForm.slug}
-                onChange={(e) => {
-                  // Chuẩn hóa slug: lowercase, bỏ dấu, chỉ giữ a-z0-9- 
-                  const raw = e.target.value;
-                  const normalized = raw
-                    .toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/^-+|-+$/g, "");
-                  setProductForm((f) => ({ ...f, slug: normalized }));
-                }}
+                onChange={(e) =>
+                  setProductForm((f) => ({ ...f, slug: e.target.value }))
+                }
+                onBlur={(e) =>
+                  setProductForm((f) => ({
+                    ...f,
+                    slug: normalizeSlug(e.target.value),
+                  }))
+                }
                 placeholder="vd: giang-cao-100gr"
               />
               <p className="text-xs text-muted-foreground">
@@ -1148,7 +1299,7 @@ export function ProductInventoryClient({ productId }: Props) {
             type="button"
             className="gap-2"
             onClick={handleSaveProduct}
-            disabled={isSavingProduct}
+            disabled={isSavingProduct || isSavingVariants}
           >
             {isSavingProduct ? (
               <>

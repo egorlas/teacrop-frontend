@@ -4,7 +4,7 @@ import { Container } from "@/components/Container";
 
 export function AboutUs() {
   return (
-    <section className="border-b border-gray-200 bg-white py-10">
+    <section className="bg-white py-10">
       <Container>
         <div className="mx-auto flex max-w-5xl items-stretch justify-center gap-6 lg:gap-10">
           {/* Banner trái: hình lá trà. Thêm ảnh: imageSrc="/path/to/image.jpg" */}
@@ -29,7 +29,7 @@ export function AboutUs() {
               <p>
                 <Link
                   href="/about"
-                  className="inline-flex items-center text-pink-500 font-medium hover:text-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:ring-offset-1"
+                  className="inline-flex items-center font-medium text-slate-700 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300/50 focus:ring-offset-1"
                 >
                   Xem thêm về chúng tôi →
                 </Link>

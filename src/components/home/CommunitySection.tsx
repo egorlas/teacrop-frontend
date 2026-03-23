@@ -29,7 +29,7 @@ const CARDS = [
 
 export function CommunitySection() {
   return (
-    <section className="border-y border-slate-100 bg-white py-10">
+    <section className="bg-white py-10">
       <Container>
         <div className="grid gap-6 md:grid-cols-2">
           {CARDS.map((card) => (
@@ -56,7 +56,7 @@ export function CommunitySection() {
                 </p>
                 <Link
                   href={card.href}
-                  className="mt-3 inline-flex text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                  className="mt-3 inline-flex text-sm font-semibold text-slate-700 hover:text-slate-900"
                 >
                   {card.ctaLabel}
                 </Link>
