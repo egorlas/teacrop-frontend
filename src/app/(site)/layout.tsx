@@ -1,14 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HomeFooter } from "@/components/home/HomeFooter";
 import { FloatingButtons } from "@/components/common/FloatingButtons";
-import { TopBar } from "@/components/home/TopBar";
 import { Header } from "@/components/home/Header";
 import { NavMenu } from "@/components/home/NavMenu";
-import { AuthCtaSection } from "@/components/home/AuthCtaSection";
+import { HomeNavSearch } from "@/components/home/HomeNavSearch";
 
 export default function SiteLayout({
   children,
@@ -18,18 +18,38 @@ export default function SiteLayout({
   const pathname = usePathname();
   const isHomePage = pathname === "/" || pathname === "/vi" || pathname === "/en";
   const isProductsPage = pathname?.startsWith("/products");
-  const hideAuthBar = pathname?.startsWith("/orders") || pathname?.startsWith("/profile");
+  const showFixedTop = !pathname?.startsWith("/login");
+  const fixedTop = (
+    <>
+      <div className="fixed inset-x-0 top-0 z-50">
+        <Suspense fallback={null}>
+          <Header />
+        </Suspense>
+        <div className="bg-[#fbfbfb] shadow-sm">
+          <div className="mx-auto max-w-7xl px-4 py-1 sm:px-6 lg:px-8">
+            <div className="min-w-0">
+              <HomeNavSearch inline />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="h-[150px] md:h-[160px]" aria-hidden />
+    </>
+  );
 
   if (isHomePage) {
-    return <>{children}</>;
+    return (
+      <>
+        {showFixedTop && fixedTop}
+        {children}
+      </>
+    );
   }
 
   if (isProductsPage) {
     return (
       <div className="flex min-h-screen flex-col bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
-        <TopBar />
-        {!hideAuthBar && <AuthCtaSection />}
-        <Header />
+        {showFixedTop && fixedTop}
         <NavMenu />
         <main className="flex-1">{children}</main>
         <HomeFooter />
@@ -40,8 +60,7 @@ export default function SiteLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-pink-50 via-rose-50/80 to-pink-50">
-      {!hideAuthBar && <AuthCtaSection />}
-      <Navbar />
+      {showFixedTop && fixedTop}
       <main className="flex-1">{children}</main>
       <Footer />
       <FloatingButtons />

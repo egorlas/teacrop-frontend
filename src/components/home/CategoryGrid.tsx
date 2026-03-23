@@ -6,7 +6,7 @@ import { Container } from "@/components/Container";
 
 export function CategoryGrid() {
   return (
-    <section className="border-b border-gray-200 bg-white py-6">
+    <section className="bg-white py-6">
       <Container>
         <h2 className="mb-8 text-[2.25rem] font-semibold text-gray-800 text-center">
           Danh mục

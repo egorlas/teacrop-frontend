@@ -155,6 +155,9 @@ export default function CreateOrderPage() {
                     : `${baseUrl}${thumb.url}`;
                 } else if (
                   Array.isArray(thumb) &&
+
+
+                  
                   thumb.length > 0 &&
                   (thumb[0] as any)?.url
                 ) {

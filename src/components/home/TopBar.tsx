@@ -10,7 +10,7 @@ const MESSAGES = [
 
 export function TopBar() {
   return (
-    <div className="bg-[#00b4a5] text-emerald-50">
+    <div className="bg-white text-[#363636]">
       <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-2 text-[0.9rem] sm:px-6 lg:px-8">
         <div className="flex items-center gap-2 overflow-hidden">
           <Bell className="h-4 w-4 shrink-0" />
